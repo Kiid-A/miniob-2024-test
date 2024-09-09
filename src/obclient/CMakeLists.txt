@@ -1,6 +1,6 @@
 ADD_EXECUTABLE(obclient)
 MESSAGE("Begin to build " obclient)
-
+add_definitions("-Wall -g")
 INCLUDE(readline)
 MINIOB_FIND_READLINE()
 

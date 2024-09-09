@@ -8,6 +8,7 @@
 
 #include "common/log/log.h"
 #include "common/lang/string.h"
+#include "common/time/datetime.h"
 #include "sql/parser/parse_defs.h"
 #include "sql/parser/yacc_sql.hpp"
 #include "sql/parser/lex_sql.h"
@@ -89,6 +90,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         INT_T
         STRING_T
         FLOAT_T
+        DATE_T
         HELP
         EXIT
         DOT //QUOTE
@@ -134,7 +136,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 
 %token <number> NUMBER
 %token <floats> FLOAT
-%token <string> ID
+%token <string> ID          
+%token <string> DATE_STR
 %token <string> SSS
 //非终结符
 
@@ -360,6 +363,7 @@ type:
     INT_T      { $$ = static_cast<int>(AttrType::INTS); }
     | STRING_T { $$ = static_cast<int>(AttrType::CHARS); }
     | FLOAT_T  { $$ = static_cast<int>(AttrType::FLOATS); }
+    | DATE_T   { $$ = static_cast<int>(AttrType::DATES); }
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
     INSERT INTO ID VALUES LBRACE value value_list RBRACE 
@@ -406,6 +410,26 @@ value:
       $$ = new Value(tmp);
       free(tmp);
       free($1);
+    }
+    |DATE_STR {
+      // char *tmp = common::substr($1,1,strlen($1)-2);
+      // $$ = new Value(tmp);
+      // free(tmp);
+      // free($1);
+      char *tmp = common::substr($1,1,strlen($1)-2);
+      std::string str(tmp);
+      Value * value = new Value();
+      int date;
+      if(string_to_date(str,date) < 0) {
+        yyerror(&@$,sql_string,sql_result,scanner,"date invaid");
+        YYERROR;
+      }
+      else
+      {
+        value->set_date(date);
+      }
+      $$ = value;
+      free(tmp);
     }
     ;
 storage_format:

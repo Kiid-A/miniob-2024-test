@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 set(CMAKE_CXX_STANDARD 20)
-
+add_definitions("-Wall -g")
 project(minidb)
 
 MESSAGE(STATUS "This is Project source dir " ${PROJECT_SOURCE_DIR})

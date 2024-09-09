@@ -21,6 +21,50 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/iomanip.h"
 #include "common/lang/sstream.h"
 #include "common/lang/string.h"
+#include "log/log.h"
+
+bool check_date(int year, int month, int day)
+{
+  static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  LOG_WARN("check_date: year %d,month %d,day %d", year, month, day);
+  bool leap = (year % 400 == 0 || (year % 100 && year % 4 == 0));
+  if (year > 0 && (month > 0) && (month <= 12) && (day > 0) && (day <= ((month == 2 && leap) ? 1 : 0) + mon[month]))
+    return true;
+  else
+    return false;
+}
+
+int string_to_date(const std::string &str, int32_t &date)
+{
+  int y, m, d;
+  LOG_WARN("str: %s", str.c_str());
+  int field =  sscanf(str.c_str(), "%d-%d-%d", &y, &m, &d);  // not check return value eq 3, lex guarantee
+  if (field != 3) {
+    LOG_WARN("failed to parse date");
+  }
+  
+  bool b = check_date(y, m, d);
+  if (!b)
+    return -1;
+  date = y * 10000 + m * 100 + d;
+  return 0;
+}
+
+std::string date_to_string(int32_t date)
+{
+  std::string ans       = "YYYY-MM-DD";
+  std::string tmp       = std::to_string(date);
+  int         tmp_index = 7;
+  for (int i = 9; i >= 0; i--) {
+    if (i == 7 || i == 4) {
+      ans[i] = '-';
+    } else {
+      ans[i] = tmp[tmp_index--];
+    }
+  }
+  return ans;
+}
+
 namespace common {
 
 DateTime::DateTime(string &xml_str)
@@ -65,8 +109,8 @@ string DateTime::time_t_to_xml_str(time_t timet)
 {
   string        ret_val;
   ostringstream oss;
-  struct tm          tmbuf;
-  tm                *tm_info = gmtime_r(&timet, &tmbuf);
+  struct tm     tmbuf;
+  tm           *tm_info = gmtime_r(&timet, &tmbuf);
   oss << tm_info->tm_year + 1900 << "-";
   if ((tm_info->tm_mon + 1) <= 9)
     oss << "0";
@@ -89,7 +133,7 @@ string DateTime::time_t_to_xml_str(time_t timet)
 
 string DateTime::str_to_time_t_str(string &xml_str)
 {
-  tm                 tmp;
+  tm            tmp;
   ostringstream oss;
   sscanf(xml_str.c_str(),
       "%04d-%02d-%02dT%02d:%02d:%02dZ",
@@ -126,7 +170,7 @@ string DateTime::to_xml_date_time()
 {
 
   string        ret_val;
-  tm                 tm_info;
+  tm            tm_info;
   ostringstream oss;
 
   tm_info = to_tm();
