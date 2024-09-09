@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/algorithm.h"
 #include "common/log/log.h"
 #include "common/global_context.h"
+#include "common/rc.h"
 #include "storage/db/db.h"
 #include "storage/buffer/disk_buffer_pool.h"
 #include "storage/common/condition_filter.h"
@@ -272,7 +273,7 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
 
   for (int i = 0; i < value_num && OB_SUCC(rc); i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
-    const Value &    value = values[i];
+    const Value     &value = values[i];
     if (field->type() != value.attr_type()) {
       Value real_value;
       rc = Value::cast_to(value, field->type(), real_value);
@@ -538,5 +539,53 @@ RC Table::sync()
 
   rc = data_buffer_pool_->flush_all_pages();
   LOG_INFO("Sync table over. table=%s", name());
+  return rc;
+}
+
+RC Table::drop(const char *dir)
+{
+  auto rc = RC::SUCCESS;
+  /* flush from bmp to avoid err */
+  if ((rc = sync()) != RC::SUCCESS) {
+    LOG_WARN("failed to flush bmp");
+  } else {
+    // 删除元数据文件
+    string meta_file = table_meta_file(dir, name());
+    if (0 != unlink(meta_file.c_str())) {
+      LOG_ERROR("Failed to delete meta file: %s", meta_file.c_str());
+      return RC::IOERR_REMOVE;
+    } else {
+      // 删除索引文件
+      const int index_num = table_meta_.index_num();
+      for (int i = 0; i < index_num; i++) {
+        ((BplusTreeIndex *)indexes_[i])->close();
+        const IndexMeta *index_meta = table_meta_.index(i);
+        if (index_meta != nullptr) {
+          std::string index_file = ::table_index_file(dir, name(), index_meta->name());
+          if (0 != ::unlink(index_file.c_str())) {
+            LOG_WARN("unable to delete %s meta file", name());
+            rc = RC::IOERR_REMOVE;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  record_handler_->close();
+  delete record_handler_;
+  record_handler_ = nullptr;
+
+  /* 先close后remove */
+  // 删除数据文件
+  std::string        data_file = table_data_file(dir, name());
+  BufferPoolManager &bpm       = db_->buffer_pool_manager();
+  if ((rc = bpm.close_file(data_file.c_str())) != RC::SUCCESS) {
+    LOG_WARN("failed to close file:%s", data_file.c_str());
+  } else if (0 != remove(data_file.c_str())) {
+    LOG_WARN("failed to unlink file:%s", data_file.c_str());
+    rc = RC::FILE_REMOVE;
+  }
+
   return rc;
 }
