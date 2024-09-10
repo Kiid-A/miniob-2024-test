@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "session_stage.h"
 
+#include <regex>
 #include <string.h>
 
 #include "common/conf/ini.h"

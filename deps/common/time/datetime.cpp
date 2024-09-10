@@ -26,7 +26,7 @@ See the Mulan PSL v2 for more details. */
 bool check_date(int year, int month, int day)
 {
   static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-  LOG_WARN("check_date: year %d,month %d,day %d", year, month, day);
+  // LOG_WARN("check_date: year %d,month %d,day %d", year, month, day);
   bool leap = (year % 400 == 0 || (year % 100 && year % 4 == 0));
   if (year > 0 && (month > 0) && (month <= 12) && (day > 0) && (day <= ((month == 2 && leap) ? 1 : 0) + mon[month]))
     return true;
@@ -37,10 +37,10 @@ bool check_date(int year, int month, int day)
 int string_to_date(const std::string &str, int32_t &date)
 {
   int y, m, d;
-  LOG_WARN("str: %s", str.c_str());
+  // LOG_WARN("str: %s", str.c_str());
   int field =  sscanf(str.c_str(), "%d-%d-%d", &y, &m, &d);  // not check return value eq 3, lex guarantee
   if (field != 3) {
-    LOG_WARN("failed to parse date");
+    // LOG_WARN("failed to parse date");
   }
   
   bool b = check_date(y, m, d);

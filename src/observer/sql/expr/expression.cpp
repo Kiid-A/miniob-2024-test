@@ -16,8 +16,32 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/tuple.h"
 #include "sql/expr/arithmetic_operator.hpp"
 #include "sql/parser/parse_defs.h"
+#include <regex>
 
 using namespace std;
+
+static void replace_all(std::string &str, const std::string &from, const std::string &to)
+{
+  if (from.empty()) {
+    return;
+  }
+  size_t pos = 0;
+  while (std::string::npos != (pos = str.find(from, pos))) {
+    str.replace(pos, from.length(), to);
+    pos += to.length();  // in case 'to' contains 'from'
+  }
+}
+
+static bool str_like(const Value &left, const Value &right)
+{
+  std::string target(right.data());
+  replace_all(target, "_", "[^']");
+  replace_all(target, "%", "[^']*");
+  
+  std::regex reg(target.c_str(), std::regex_constants::ECMAScript | std::regex_constants::icase);
+  bool res = std::regex_match(left.data(), reg);
+  return res;
+}
 
 RC FieldExpr::get_value(const Tuple &tuple, Value &value) const
 {
@@ -144,10 +168,10 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right, bool &re
       result = (cmp_result > 0);
     } break;
     case LIKE_OP: {
-
+      result = str_like(left, right);
     } break;
     case NOT_LIKE_OP: {
-      
+      result = !str_like(left, right);
     } break;
     default: {
       LOG_WARN("unsupported comparison. %d", comp_);
