@@ -130,8 +130,10 @@ union YYSTYPE
   char *                                     string;
   int                                        number;
   float                                      floats;
+  UpdateKV *                                 update_kv;
+  std::vector<UpdateKV> *                    update_kv_list;
 
-#line 135 "yacc_sql.hpp"
+#line 137 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

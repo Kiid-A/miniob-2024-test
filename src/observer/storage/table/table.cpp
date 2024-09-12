@@ -31,6 +31,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/record_manager.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
+#include "deps/common/lang/defer.h"
 
 Table::~Table()
 {
@@ -589,3 +590,45 @@ RC Table::drop(const char *dir)
 
   return rc;
 }
+
+// find rid and data
+RC Table::update_record(Record &record, const char *attr_name, Value *value) { return RC::UNIMPLEMENTED; }
+
+RC Table::update_record(Record &record, std::vector<Field> fields, std::vector<unique_ptr<Expression>> values)
+{
+  RC rc = RC::SUCCESS;
+  if (fields.size() != values.size()) {
+    LOG_WARN("fields size mismatch values");
+    return RC::INVALID_ARGUMENT;
+  }
+  // we need new record data
+  char *new_data = new char[table_meta_.record_size()];
+
+  for (size_t i = 0; i < fields.size(); i++) {
+    set_value_to_record(new_data, values[i], &fields[i]);
+  }
+
+  rc = insert_entry_of_indexes(record.data(), record.rid());
+  if (rc != RC::SUCCESS) {  // 可能出现了键值重复,需要rollback
+    RC rc2 = delete_entry_of_indexes(record.data(), record.rid(), false /*error_on_not_exists*/);
+    if (rc2 != RC::SUCCESS) {
+      LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+                name(), rc2, strrc(rc2));
+    }
+    rc2 = record_handler_->delete_record(&record.rid());
+    if (rc2 != RC::SUCCESS) {
+      LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
+                name(), rc2, strrc(rc2));
+    }
+  }
+  rc = record_handler_->update_record(&record.rid(), record.data());
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR(
+        "Failed to update record (rid=%d.%d). rc=%d:%s", record.rid().page_num, record.rid().slot_num, rc, strrc(rc));
+    return rc;
+  }
+
+  return rc;
+}
+
+RC Table::update_record(Record &old_record, Record &new_record) { return RC::UNIMPLEMENTED; }

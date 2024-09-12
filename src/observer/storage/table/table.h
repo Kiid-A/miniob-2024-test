@@ -80,6 +80,11 @@ public:
   RC delete_record(const RID &rid);
   RC get_record(const RID &rid, Record &record);
 
+  // 把目标列改成对应值
+  RC update_record(Record &record, const char* attr_name, Value *value);
+  RC update_record(Record &record, const std::vector<FieldMeta> fields, const std::vector<Value> values);
+  RC update_record(Record &old_record, Record &new_record);
+
   RC recover_insert_record(Record &record);
 
   // TODO refactor
@@ -113,6 +118,7 @@ public:
   RC drop(const char *dir);
 
 private:
+/* get rid,i.e. which slot you insert/delete or ... */
   RC insert_entry_of_indexes(const char *record, const RID &rid);
   RC delete_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists);
   RC set_value_to_record(char *record_data, const Value &value, const FieldMeta *field);

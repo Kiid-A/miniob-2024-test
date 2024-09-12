@@ -134,6 +134,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   char *                                     string;
   int                                        number;
   float                                      floats;
+  UpdateKV *                                 update_kv;
+  std::vector<UpdateKV> *                    update_kv_list;
 }
 
 %token <number> NUMBER
@@ -144,6 +146,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 //非终结符
 
 /** type 定义了各种解析后的结果输出的是什么类型。类型对应了 union 中的定义的成员变量名称 **/
+%type <update_kv_list>      update_kv_list
+%type <update_kv>           update_kv
 %type <number>              type
 %type <condition>           condition
 %type <value>               value
@@ -458,18 +462,52 @@ delete_stmt:    /*  delete 语句的语法解析树*/
     }
     ;
 update_stmt:      /*  update 语句的语法解析树*/
-    UPDATE ID SET ID EQ value where 
+    UPDATE ID SET update_kv update_kv_list where 
     {
       $$ = new ParsedSqlNode(SCF_UPDATE);
       $$->update.relation_name = $2;
-      $$->update.attribute_name = $4;
-      $$->update.value = *$6;
-      if ($7 != nullptr) {
-        $$->update.conditions.swap(*$7);
-        delete $7;
+      $$->update.attribute_names.emplace_back($4->attr_name);
+      $$->update.values.emplace_back($4->value);
+      if (nullptr != $5) {
+        for (UpdateKV kv : *$5) {
+          $$->update.attribute_names.emplace_back(kv.attr_name);
+          $$->update.values.emplace_back(kv.value);
+        }
+        delete $5;
+      }
+      // $$->update.conditions = nullptr;
+      if ($6 != nullptr) {
+        for (ConditionSqlNode cond : *$6) {
+          $$->update.conditions.emplace_back(cond);
+        }
       }
       free($2);
-      free($4);
+      delete $4;
+    }
+    ;
+update_kv_list:
+    {
+      $$ = nullptr;
+    }
+    | COMMA update_kv update_kv_list
+    {
+      if ($3 != nullptr) {
+        $$ = $3;
+      } else {
+        $$ = new std::vector<UpdateKV>;
+      }
+      $$->emplace_back(*$2);
+      delete $2;
+    }
+    ;
+update_kv:
+/* it has to be expression 为了适应更多的东西 */
+    ID EQ value  
+    {
+      $$ = new UpdateKV;
+      $$->attr_name = $1;
+      $$->value = *$3;
+      free($1);
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/

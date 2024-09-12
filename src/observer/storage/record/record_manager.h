@@ -126,6 +126,7 @@ class RecordPageHandler
 {
 public:
   RecordPageHandler(StorageFormat storage_format) : storage_format_(storage_format) {}
+  RecordPageHandler() = default;
   virtual ~RecordPageHandler();
   static RecordPageHandler *create(StorageFormat format);
 
@@ -387,6 +388,13 @@ public:
    * @param rid         返回该记录的标识符
    */
   RC insert_record(const char *data, int record_size, RID *rid);
+
+  /**
+   * @brief 更新一条记录
+   * @param rec 要更新的记录
+   */
+
+  RC update_record(RID *rid, const char *data);
 
   /**
    * @brief 数据库恢复时，在指定文件指定位置插入数据

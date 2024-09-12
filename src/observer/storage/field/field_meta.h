@@ -30,8 +30,10 @@ class FieldMeta
 {
 public:
   FieldMeta();
+  FieldMeta(const FieldMeta &other) = default;
   FieldMeta(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id);
   ~FieldMeta() = default;
+  FieldMeta& operator=(const FieldMeta& other) = default;
 
   RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool visible, int field_id);
 

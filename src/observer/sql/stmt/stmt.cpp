@@ -31,10 +31,12 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/trx_begin_stmt.h"
 #include "sql/stmt/trx_end_stmt.h"
 #include "drop_table_stmt.h"
+#include "sql/stmt/update_stmt.h"
 
 bool stmt_type_ddl(StmtType type)
 {
   switch (type) {
+    case StmtType::UPDATE:
     case StmtType::CREATE_TABLE:
     case StmtType::DROP_TABLE:
     case StmtType::DROP_INDEX:
@@ -112,6 +114,10 @@ RC Stmt::create_stmt(Db *db, ParsedSqlNode &sql_node, Stmt *&stmt)
 
     case SCF_DROP_TABLE: {
       return DropTableStmt::create(db, sql_node.drop_table, stmt);
+    }
+
+    case SCF_UPDATE: {
+      return UpdateStmt::create(db, sql_node.update, stmt); 
     }
 
     default: {
