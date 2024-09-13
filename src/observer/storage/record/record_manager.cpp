@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/condition_filter.h"
 #include "storage/trx/trx.h"
 #include "storage/clog/log_handler.h"
+#include "record_manager.h"
 
 using namespace common;
 
@@ -290,6 +291,7 @@ RC RowRecordPageHandler::insert_record(const char *data, RID *rid)
 
   // assert index < page_header_->record_capacity
   char *record_data = get_record_data(index);
+  // printf("data:%s len:%d\n", data, page_header_->record_real_size);
   memcpy(record_data, data, page_header_->record_real_size);
 
   frame_->mark_dirty();
@@ -368,6 +370,7 @@ RC RowRecordPageHandler::update_record(const RID &rid, const char *data)
     if (record_data == data) {
       // nothing to do
     } else {
+      // printf("record data:%s data:%s\n",record_data, data);
       memcpy(record_data, data, page_header_->record_real_size);
     }
 
@@ -667,6 +670,29 @@ RC RecordFileHandler::get_record(const RID &rid, Record &record)
 
   record.copy_data(inplace_record.data(), inplace_record.len());
   record.set_rid(rid);
+  return rc;
+}
+
+RC RecordFileHandler::update_record(const char *data, RID &rid)
+{
+  unique_ptr<RecordPageHandler> record_page_handler(RecordPageHandler::create(storage_format_));
+  RC rc = record_page_handler->init(*disk_buffer_pool_, *log_handler_, rid.page_num, ReadWriteMode::READ_WRITE);
+  if (OB_FAIL(rc)) {
+    LOG_ERROR("Failed to init record page handler.page number=%d", rid.page_num);
+    return rc;
+  }
+  
+  rc = record_page_handler->update_record(rid, data);
+  
+  record_page_handler->cleanup();
+  if (OB_SUCC(rc)) {
+    // 因为这里已经释放了页面锁，并发时，其它线程可能又把该页面填满了，那就不应该再放入 free_pages_
+    // 中。但是这里可以不关心，因为在查找空闲页面时，会自动过滤掉已经满的页面
+    lock_.lock();
+    free_pages_.insert(rid.page_num);
+    LOG_TRACE("add free page %d to free page list", rid.page_num);
+    lock_.unlock();
+  }
   return rc;
 }
 
