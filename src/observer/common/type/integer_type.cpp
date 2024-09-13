@@ -83,7 +83,7 @@ RC IntegerType::divide(const Value &left, const Value &right, Value &result) con
     return RC::INVALID_ARGUMENT;
   }
 
-  result.set_float((left.get_int() + EPSILON) / right.get_int());
+  result.set_float((left.get_int() + EPSILON - EPSILON) / right.get_int());
   
   return RC::SUCCESS;
 }

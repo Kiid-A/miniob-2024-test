@@ -40,6 +40,7 @@ RC AvgAggregator::accumulate(const Value &value)
 {
   if (value_.attr_type() == AttrType::UNDEFINED) {
     value_ = value;
+    cnt_++;
     return RC::SUCCESS;
   }
   
