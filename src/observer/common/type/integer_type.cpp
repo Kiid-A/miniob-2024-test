@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/type/integer_type.h"
 #include "common/rc.h"
+#include "common/type/attr_type.h"
 #include "common/value.h"
 #include "integer_type.h"
 
@@ -85,5 +86,40 @@ RC IntegerType::divide(const Value &left, const Value &right, Value &result) con
 
   result.set_float((left.get_int() + EPSILON - EPSILON) / right.get_int());
   
+  return RC::SUCCESS;
+}
+
+int IntegerType::cast_cost(AttrType type)
+{
+  if (type == AttrType::FLOATS) {
+    return 0;
+  }
+  return INT32_MAX;
+}
+
+RC IntegerType::cast_to(const Value &val, AttrType type, Value &result) const
+{
+  result.set_type(type);
+
+  switch (type) {
+    case AttrType::INTS: {
+      return RC::SUCCESS;
+    }
+
+    case AttrType::FLOATS: {
+      result.set_int(val.get_int());
+    } break;
+
+    case AttrType::CHARS: {
+      result.set_string_from_other(val);
+    } break;
+
+    case AttrType::DATES: {
+      result.set_date(val.get_int());
+    } break;
+
+    default:
+      return RC::UNIMPLEMENTED;
+  }
   return RC::SUCCESS;
 }
