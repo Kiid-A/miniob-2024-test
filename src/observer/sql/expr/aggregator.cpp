@@ -54,6 +54,7 @@ RC AvgAggregator::accumulate(const Value &value)
 
 RC AvgAggregator::evaluate(Value& result)
 {
+  result.set_type(AttrType::FLOATS);
   Value::divide(value_, Value(cnt_), result);
   return RC::SUCCESS;
 }

@@ -8,11 +8,14 @@ EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
+#include "common/defs.h"
 #include "common/lang/comparator.h"
 #include "common/lang/sstream.h"
 #include "common/log/log.h"
 #include "common/type/integer_type.h"
+#include "common/rc.h"
 #include "common/value.h"
+#include "integer_type.h"
 
 int IntegerType::compare(const Value &left, const Value &right) const
 {
@@ -71,5 +74,16 @@ RC IntegerType::to_string(const Value &val, string &result) const
   stringstream ss;
   ss << val.value_.int_value_;
   result = ss.str();
+  return RC::SUCCESS;
+}
+
+RC IntegerType::divide(const Value &left, const Value &right, Value &result) const
+{
+  if (right.get_int() == 0) {
+    return RC::INVALID_ARGUMENT;
+  }
+
+  result.set_float((left.get_int() + EPSILON) / right.get_int());
+  
   return RC::SUCCESS;
 }
