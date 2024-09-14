@@ -138,7 +138,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   std::vector<ConditionSqlNode> *            condition_list;
   std::vector<RelAttrSqlNode> *              rel_attr_list;
   std::vector<std::string> *                 relation_list;
-  std::vector<std::pair<std::string, ConditionSqlNode>> * join_list;
+  std::vector<std::pair<std::string, std::vector<ConditionSqlNode> *>> * 
+                                             join_list;
   char *                                     string;
   int                                        number;
   float                                      floats;
@@ -522,7 +523,9 @@ select_stmt:        /*  select 语句的语法解析树*/
       if ($5 != nullptr) {
         for (auto join : *$5) {
           $$->selection.relations.push_back(join.first);
-          $$->selection.conditions.push_back(join.second);
+          for (auto cond : *join.second) {
+            $$->selection.conditions.push_back(cond);
+          }
         }
         delete $5;
       }
@@ -643,20 +646,20 @@ rel_list:
     }
     ;
 join_list:
-    INNER JOIN relation ON condition {
-      $$ = new std::vector<std::pair<std::string, ConditionSqlNode>>();
-      $$->push_back({std::string($3), *$5});
+    INNER JOIN relation ON condition_list {
+      $$ = new std::vector<std::pair<std::string, std::vector<ConditionSqlNode> *>>();
+      $$->push_back({std::string($3), $5});
       free($3);
       // free($5);
     }
-    | INNER JOIN relation ON condition join_list {
+    | INNER JOIN relation ON condition_list join_list {
       if ($6 != nullptr) {
         $$ = $6;
       } else {
-        $$ = new std::vector<std::pair<std::string, ConditionSqlNode>>();
+        $$ = new std::vector<std::pair<std::string, std::vector<ConditionSqlNode> *>>();
       }
 
-      $$->insert($$->begin(), {std::string($3), *$5});
+      $$->insert($$->begin(), {std::string($3), $5});
       free($3);
       // free($5);
     }
