@@ -107,7 +107,7 @@ RC IntegerType::cast_to(const Value &val, AttrType type, Value &result) const
     }
 
     case AttrType::FLOATS: {
-      result.set_int(val.get_int());
+      result.set_float(val.get_int());
     } break;
 
     case AttrType::CHARS: {
