@@ -77,6 +77,7 @@ See the Mulan PSL v2 for more details. */
   DEFINE_RC(LOGBUF_FULL)                 \
   DEFINE_RC(LOG_FILE_FULL)               \
   DEFINE_RC(LOG_ENTRY_INVALID)           \
+  DEFINE_RC(DUPLICATE_FIELD_NAME)        \
   DEFINE_RC(UNSUPPORTED)
 
 enum class RC

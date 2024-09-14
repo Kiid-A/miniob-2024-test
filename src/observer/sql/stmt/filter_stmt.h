@@ -61,6 +61,7 @@ public:
 
 private:
   CompOp    comp_ = NO_OP;
+  std::unordered_map<std::string, int> field_names_;
   FilterObj left_;
   FilterObj right_;
 };

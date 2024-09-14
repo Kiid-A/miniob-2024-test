@@ -138,6 +138,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   std::vector<ConditionSqlNode> *            condition_list;
   std::vector<RelAttrSqlNode> *              rel_attr_list;
   std::vector<std::string> *                 relation_list;
+  std::vector<std::pair<std::string, ConditionSqlNode>> * join_list;
   char *                                     string;
   int                                        number;
   float                                      floats;
@@ -165,6 +166,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <condition_list>      condition_list
 %type <string>              storage_format
 %type <relation_list>       rel_list
+%type <join_list>           join_list
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <expression_list>     group_by
@@ -503,7 +505,8 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $6;
       }
     }
-    | SELECT expression_list FROM rel_list INNER JOIN rel_list ON condition_list
+    // | SELECT expression_list FROM rel_list INNER JOIN rel_list ON condition_list
+    | SELECT expression_list FROM rel_list join_list
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -516,16 +519,12 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $4;
       }
 
-      if ($7 != nullptr) {
-        for (std::string s : *$7) {
-          $$->selection.relations.push_back(s);
+      if ($5 != nullptr) {
+        for (auto join : *$5) {
+          $$->selection.relations.push_back(join.first);
+          $$->selection.conditions.push_back(join.second);
         }
-        delete $7;
-      }
-
-      if ($9 != nullptr) {
-        $$->selection.conditions.swap(*$9);
-        delete $9;
+        delete $5;
       }
     }
     ;
@@ -643,6 +642,24 @@ rel_list:
       free($1);
     }
     ;
+join_list:
+    INNER JOIN relation ON condition {
+      $$ = new std::vector<std::pair<std::string, ConditionSqlNode>>();
+      $$->push_back({std::string($3), *$5});
+      free($3);
+      // free($5);
+    }
+    | INNER JOIN relation ON condition join_list {
+      if ($6 != nullptr) {
+        $$ = $6;
+      } else {
+        $$ = new std::vector<std::pair<std::string, ConditionSqlNode>>();
+      }
+
+      $$->insert($$->begin(), {std::string($3), *$5});
+      free($3);
+      // free($5);
+    }
 
 where:
     /* empty */
