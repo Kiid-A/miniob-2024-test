@@ -1,0 +1,27 @@
+[2024-09-13 22:41:45.090293 pid:141747 tid:7ffff6fc57c0 ctx:0 WARN: create_db@default_handler.cpp:93] >> Db already exists: sys
+[2024-09-13 22:41:45.090651 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:128, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.090945 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:256, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.091249 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:384, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.091544 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:512, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.091831 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:640, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.092110 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:768, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.092385 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:896, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.092658 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:1024, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.092923 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:1152, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.093200 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:1280, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.093472 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:1408, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.093737 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:1536, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.094003 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:1664, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.094307 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:1792, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.094598 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:1920, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.094865 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:2048, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.095131 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:2176, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.095406 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:2304, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.095672 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:2432, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.095937 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: extend@mem_pool.h:244] >> Extend one pool, this->size:2560, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.095967 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: init@mem_pool.h:191] >> Extend one pool, this->size:2560, item_num_per_pool:128, this->name:BufPool.
+[2024-09-13 22:41:45.095987 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: BufferPoolManager@disk_buffer_pool.cpp:771] >> buffer pool manager init with memory size 20971520, page num: 2560, pool num: 20
+[2024-09-13 22:41:45.096038 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: load_pages@double_write_buffer.cpp:290] >> double write buffer load pages done. page num=0
+[2024-09-13 22:41:45.096113 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: init_meta@db.cpp:335] >> Db meta file not exist. db=sys, file=miniob/db/sys/sys.db
+[2024-09-13 22:41:45.096356 pid:141747 tid:7ffff6fc57c0 ctx:0 INFO: open_all_tables@db.cpp:245] >> All table have been opened. num=0
+

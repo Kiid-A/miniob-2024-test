@@ -120,6 +120,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         MIN
         AVG
         SUM
+        INNER
+        JOIN
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -499,6 +501,31 @@ select_stmt:        /*  select 语句的语法解析树*/
       if ($6 != nullptr) {
         $$->selection.group_by.swap(*$6);
         delete $6;
+      }
+    }
+    | SELECT expression_list FROM rel_list INNER JOIN rel_list ON condition_list
+    {
+      $$ = new ParsedSqlNode(SCF_SELECT);
+      if ($2 != nullptr) {
+        $$->selection.expressions.swap(*$2);
+        delete $2;
+      }
+
+      if ($4 != nullptr) {
+        $$->selection.relations.swap(*$4);
+        delete $4;
+      }
+
+      if ($7 != nullptr) {
+        for (std::string s : *$7) {
+          $$->selection.relations.push_back(s);
+        }
+        delete $7;
+      }
+
+      if ($9 != nullptr) {
+        $$->selection.conditions.swap(*$9);
+        delete $9;
       }
     }
     ;
