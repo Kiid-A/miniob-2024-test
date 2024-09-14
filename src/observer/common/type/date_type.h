@@ -28,3 +28,6 @@ public:
 
   RC to_string(const Value &val, string &result) const override;
 };
+
+bool is_leap_year(int year);
+int get_days_in_month(int year, int month);

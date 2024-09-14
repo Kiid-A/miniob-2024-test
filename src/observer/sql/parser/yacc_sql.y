@@ -73,6 +73,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         TABLE
         TABLES
         INDEX
+        MULTI_INDEX
         CALC
         SELECT
         DESC
@@ -298,6 +299,7 @@ create_index_stmt:    /*create index 语句的语法解析树*/
       free($5);
       free($7);
     }
+    | CREATE INDEX ID ON MULTI_INDEX LBRACE 
     ;
 
 drop_index_stmt:      /*drop index 语句的语法解析树*/
