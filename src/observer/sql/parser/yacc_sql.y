@@ -507,7 +507,7 @@ select_stmt:        /*  select 语句的语法解析树*/
       }
     }
     // | SELECT expression_list FROM rel_list INNER JOIN rel_list ON condition_list
-    | SELECT expression_list FROM rel_list join_list
+    | SELECT expression_list FROM rel_list join_list where group_by
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -528,6 +528,18 @@ select_stmt:        /*  select 语句的语法解析树*/
           }
         }
         delete $5;
+      }
+
+      if ($6 != nullptr) {
+        for (auto cond : *$6) {
+          $$->selection.conditions.push_back(cond);
+        }
+        delete $7;
+      }
+      
+      if ($7 != nullptr) {
+        $$->selection.group_by.swap(*$7);
+        delete $7;
       }
     }
     ;
