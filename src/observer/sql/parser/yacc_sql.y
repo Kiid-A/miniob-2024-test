@@ -141,6 +141,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   std::vector<std::string> *                 relation_list;
   std::vector<std::pair<std::string, std::vector<ConditionSqlNode> *>> * 
                                              join_list;
+  std::vector<std::string>                   id_list;
   char *                                     string;
   int                                        number;
   float                                      floats;
@@ -159,6 +160,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <value>               value
 %type <number>              number
 %type <string>              relation
+%type <id_list>             id_list
 %type <comp>                comp_op
 %type <rel_attr>            rel_attr
 %type <attr_infos>          attr_def_list
@@ -287,6 +289,18 @@ desc_table_stmt:
     }
     ;
 
+id_list:
+    ID {
+      $$ = new std::vector<std::string>();
+      $$->push_back($1);
+      free($1);
+    }
+    | ID COMMA id_list {
+      if ($3 != nullptr) {
+        $$ = new
+      }
+    }
+    ;
 create_index_stmt:    /*create index 语句的语法解析树*/
     CREATE INDEX ID ON ID LBRACE ID RBRACE
     {
@@ -299,7 +313,7 @@ create_index_stmt:    /*create index 语句的语法解析树*/
       free($5);
       free($7);
     }
-    | CREATE INDEX ID ON MULTI_INDEX LBRACE 
+    | CREATE INDEX ID ON MULTI_INDEX LBRACE id_list RBRACE
     ;
 
 drop_index_stmt:      /*drop index 语句的语法解析树*/

@@ -27,6 +27,41 @@ bool check_decimal(std::string s)
   return true;
 }
 
+float hexstr_to_float(const std::string& hexStr) {
+    std::string cleanedStr = hexStr;
+    if (cleanedStr.substr(0, 2) == "0x" || cleanedStr.substr(0, 2) == "0X") {
+        cleanedStr = cleanedStr.substr(2);
+    }
+
+    float result = 0.0;
+    float oper = 1.0 / 16;
+    bool pt_flag = false;
+    for (auto w : cleanedStr) {
+      if (w == '.') {
+        pt_flag = true;
+        continue;
+      }
+
+      if (w <= '9' && w >= '0') {
+        if (!pt_flag) {
+          result = result * 16 + (w - '0');
+        } else {
+          result = result + (w - '0') * oper;
+          oper /= 16;
+        }
+      } else {
+        if (!pt_flag) {
+          result = result * 16 + ((w >= 'a') ? (w - 'a') : (w - 'A'));
+        } else {
+          result = result + (10 + ((w >= 'a') ? (w - 'a') : (w - 'A'))) * oper;
+          oper /= 16;
+        }
+      }
+    }
+
+    return result;
+}
+
 int CharType::compare(const Value &left, const Value &right) const
 {
   ASSERT(left.attr_type() == AttrType::CHARS && right.attr_type() == AttrType::CHARS, "invalid type");
@@ -82,7 +117,7 @@ RC CharType::cast_to(const Value &val, AttrType type, Value &result) const
         if (check_decimal(val.get_string())) {
           result.set_float(std::stof(val.get_string()));
         } else {
-          result.set_float(std::stoi(val.get_string(), 0, 16));
+          result.set_float(hexstr_to_float(val.get_string()));
         }
       } catch (std::invalid_argument const &ex) {
         return RC::INVALID_ARGUMENT;
