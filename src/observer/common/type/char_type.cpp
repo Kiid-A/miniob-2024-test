@@ -16,51 +16,54 @@ See the Mulan PSL v2 for more details. */
 #include "common/type/date_type.h"
 #include "common/value.h"
 
-bool check_decimal(std::string s)
+std::string get_valid_str(const std::string &s) 
 {
-  for (auto word : s) {
-    if ((word >= 'a' && word <= 'z') || (word >= 'A' && word <= 'Z')) {
-      return false;
+  for (size_t i = 0; i < s.size(); i++) {
+    if (s[i] >= '9' || s[i] <= '0') {
+      if (s[i] != '.') {
+        return s.substr(0, i);
+      }
     }
   }
 
-  return true;
+  return s;
 }
 
-float hexstr_to_float(const std::string& hexStr) {
-    std::string cleanedStr = hexStr;
-    if (cleanedStr.substr(0, 2) == "0x" || cleanedStr.substr(0, 2) == "0X") {
-        cleanedStr = cleanedStr.substr(2);
-    }
+// float hexstr_to_float(const std::string& hexStr) 
+// {
+//     std::string cleanedStr = hexStr;
+//     if (cleanedStr.substr(0, 2) == "0x" || cleanedStr.substr(0, 2) == "0X") {
+//         cleanedStr = cleanedStr.substr(2);
+//     }
 
-    float result = 0.0;
-    float oper = 1.0 / 16;
-    bool pt_flag = false;
-    for (auto w : cleanedStr) {
-      if (w == '.') {
-        pt_flag = true;
-        continue;
-      }
+//     float result = 0.0;
+//     float oper = 1.0 / 16;
+//     bool pt_flag = false;
+//     for (auto w : cleanedStr) {
+//       if (w == '.') {
+//         pt_flag = true;
+//         continue;
+//       }
 
-      if (w <= '9' && w >= '0') {
-        if (!pt_flag) {
-          result = result * 16 + (w - '0');
-        } else {
-          result = result + (w - '0') * oper;
-          oper /= 16;
-        }
-      } else {
-        if (!pt_flag) {
-          result = result * 16 + ((w >= 'a') ? (w - 'a') : (w - 'A'));
-        } else {
-          result = result + (10 + ((w >= 'a') ? (w - 'a') : (w - 'A'))) * oper;
-          oper /= 16;
-        }
-      }
-    }
+//       if (w <= '9' && w >= '0') {
+//         if (!pt_flag) {
+//           result = result * 16 + (w - '0');
+//         } else {
+//           result = result + (w - '0') * oper;
+//           oper /= 16;
+//         }
+//       } else {
+//         if (!pt_flag) {
+//           result = result * 16 + ((w >= 'a') ? (w - 'a') : (w - 'A'));
+//         } else {
+//           result = result + (10 + ((w >= 'a') ? (w - 'a') : (w - 'A'))) * oper;
+//           oper /= 16;
+//         }
+//       }
+//     }
 
-    return result;
-}
+//     return result;
+// }
 
 int CharType::compare(const Value &left, const Value &right) const
 {
@@ -102,11 +105,7 @@ RC CharType::cast_to(const Value &val, AttrType type, Value &result) const
   switch (type) {
     case AttrType::INTS: {
       try { 
-        if (check_decimal(val.get_string())) {
-          result.set_int(std::stoi(val.get_string()));
-        } else {
-          result.set_int(std::stoi(val.get_string(), 0, 16));
-        }
+        result.set_int(std::stoi(get_valid_str(val.get_string())));
       } catch (std::invalid_argument const &ex) {
         return RC::INVALID_ARGUMENT;
       }
@@ -114,11 +113,7 @@ RC CharType::cast_to(const Value &val, AttrType type, Value &result) const
 
     case AttrType::FLOATS: {
       try { 
-        if (check_decimal(val.get_string())) {
-          result.set_float(std::stof(val.get_string()));
-        } else {
-          result.set_float(hexstr_to_float(val.get_string()));
-        }
+          result.set_float(std::stof(get_valid_str(val.get_string())));
       } catch (std::invalid_argument const &ex) {
         return RC::INVALID_ARGUMENT;
       }
