@@ -16,6 +16,17 @@ See the Mulan PSL v2 for more details. */
 #include "common/type/date_type.h"
 #include "common/value.h"
 
+bool check_decimal(std::string s)
+{
+  for (auto word : s) {
+    if ((word >= 'a' && word <= 'z') || (word >= 'A' && word <= 'Z')) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 int CharType::compare(const Value &left, const Value &right) const
 {
   ASSERT(left.attr_type() == AttrType::CHARS && right.attr_type() == AttrType::CHARS, "invalid type");
@@ -56,7 +67,11 @@ RC CharType::cast_to(const Value &val, AttrType type, Value &result) const
   switch (type) {
     case AttrType::INTS: {
       try { 
-        result.set_int(std::stoi(val.get_string()));
+        if (check_decimal(val.get_string())) {
+          result.set_int(std::stoi(val.get_string()));
+        } else {
+          result.set_int(std::stoi(val.get_string(), 0, 16));
+        }
       } catch (std::invalid_argument const &ex) {
         return RC::INVALID_ARGUMENT;
       }
@@ -64,7 +79,11 @@ RC CharType::cast_to(const Value &val, AttrType type, Value &result) const
 
     case AttrType::FLOATS: {
       try { 
-        result.set_float(std::stoi(val.get_string()));
+        if (check_decimal(val.get_string())) {
+          result.set_float(std::stof(val.get_string()));
+        } else {
+          result.set_float(std::stoi(val.get_string(), 0, 16));
+        }
       } catch (std::invalid_argument const &ex) {
         return RC::INVALID_ARGUMENT;
       }
