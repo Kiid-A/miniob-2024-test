@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/select_stmt.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
+#include "common/rc.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/db/db.h"
 #include "storage/table/table.h"
@@ -42,7 +43,9 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
 
   // collect tables in `from` statement
   vector<Table *>                tables;
+  vector<Table *>                join_tables;
   unordered_map<string, Table *> table_map;
+  std::vector<FilterStmt *>      join_conds;
 
   // printf("rel size:%d\n", (int)select_sql.relations.size());
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
@@ -63,10 +66,48 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
     table_map.insert({table_name, table});
   }
 
+  for (size_t i = 0; i < select_sql.join_relations.size(); i++) {
+    const char *table_name = select_sql.join_relations[i].c_str();
+    if (nullptr == table_name) {
+      LOG_WARN("invalid argument. relation name is null. index=%d", i);
+      return RC::INVALID_ARGUMENT;
+    }
+
+    Table *table = db->find_table(table_name);
+    if (nullptr == table) {
+      LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
+      return RC::SCHEMA_TABLE_NOT_EXIST;
+    }
+
+    binder_context.add_table(table);
+    join_tables.push_back(table);
+    table_map.insert({table_name, table});
+  }
+
+  // join part
+  for (size_t i = 0; i < select_sql.join_conds.size(); i++) {
+    FilterStmt *join_filter = nullptr;
+    if (select_sql.join_conds[i].size() != 0) {
+      RC rc = FilterStmt::create(db,
+          join_tables[i],
+          &table_map,
+          select_sql.join_conds[i].data(),
+          static_cast<int>(select_sql.join_conds[i].size()),
+          join_filter);
+
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Failed to create filter stmt for join");
+        return rc;
+      }
+    }
+
+    join_conds.push_back(join_filter);
+  }
+
   // collect query fields in `select` statement
   vector<unique_ptr<Expression>> bound_expressions;
-  ExpressionBinder expression_binder(binder_context);
-  
+  ExpressionBinder               expression_binder(binder_context);
+
   for (unique_ptr<Expression> &expression : select_sql.expressions) {
     RC rc = expression_binder.bind_expression(expression, bound_expressions);
     if (OB_FAIL(rc)) {
@@ -109,6 +150,8 @@ RC SelectStmt::create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt)
   select_stmt->query_expressions_.swap(bound_expressions);
   select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->group_by_.swap(group_by_expressions);
-  stmt                      = select_stmt;
+  select_stmt->join_conds_.swap(join_conds);
+  select_stmt->join_tables_.swap(join_tables);
+  stmt = select_stmt;
   return RC::SUCCESS;
 }

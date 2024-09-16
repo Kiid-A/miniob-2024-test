@@ -96,16 +96,22 @@ RC LogicalPlanGenerator::create_plan(CalcStmt *calc_stmt, std::unique_ptr<Logica
   return RC::SUCCESS;
 }
 
+// select a.col1,b.col2 from a,b inner join c on ...
+/** for a in A
+ *    for b in B
+ *      if a ...
+ *        if b ...
+ */ 
 RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
   unique_ptr<LogicalOperator> *last_oper = nullptr;
 
+  // outside operator
   unique_ptr<LogicalOperator> table_oper(nullptr);
   last_oper = &table_oper;
-
+  
   const std::vector<Table *> &tables = select_stmt->tables();
   for (Table *table : tables) {
-
     unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, ReadWriteMode::READ_ONLY));
     if (table_oper == nullptr) {
       table_oper = std::move(table_get_oper);
@@ -114,6 +120,39 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
       join_oper->add_child(std::move(table_oper));
       join_oper->add_child(std::move(table_get_oper));
       table_oper = unique_ptr<LogicalOperator>(join_oper);
+    }
+  }
+
+  const std::vector<Table *> &join_tables = select_stmt->join_tables();
+  const std::vector<FilterStmt *> &join_conds = select_stmt->join_conds();
+  for (size_t i = 0; i < join_conds.size(); i++) {
+  // TODO:we shall set predicate expression here! 
+  // find table first
+    unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(join_tables[i], ReadWriteMode::READ_ONLY));
+    unique_ptr<LogicalOperator> predicate_oper;
+    if (join_conds[i] != nullptr) {
+      RC rc = LogicalPlanGenerator::create_plan(join_conds[i], predicate_oper);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
+        return rc;
+      }
+    }
+    if (table_oper == nullptr) {
+      if (predicate_oper) {
+        static_cast<TableGetLogicalOperator *>(table_get_oper.get())->set_predicates(std::move(predicate_oper->expressions()));
+      }
+      table_oper = std::move(table_get_oper);
+    } else {
+      unique_ptr<JoinLogicalOperator> join_oper = std::make_unique<JoinLogicalOperator>();
+      join_oper->add_child(std::move(table_oper));
+      join_oper->add_child(std::move(table_get_oper));
+      if (predicate_oper) {
+        // join push down
+        predicate_oper->add_child(std::move(join_oper));
+        table_oper = std::move(predicate_oper);
+      } else {
+        table_oper = std::move(join_oper);
+      }
     }
   }
 

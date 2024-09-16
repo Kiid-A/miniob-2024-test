@@ -139,9 +139,9 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   std::vector<ConditionSqlNode> *            condition_list;
   std::vector<RelAttrSqlNode> *              rel_attr_list;
   std::vector<std::string> *                 relation_list;
-  std::vector<std::pair<std::string, std::vector<ConditionSqlNode> *>> * 
+  std::vector<std::pair<std::string, std::vector<ConditionSqlNode>>> * 
                                              join_list;
-  std::vector<std::string>                   id_list;
+  std::vector<std::string> *                 id_list;
   char *                                     string;
   int                                        number;
   float                                      floats;
@@ -297,7 +297,6 @@ id_list:
     }
     | ID COMMA id_list {
       if ($3 != nullptr) {
-        $$ = new
       }
     }
     ;
@@ -314,6 +313,9 @@ create_index_stmt:    /*create index 语句的语法解析树*/
       free($7);
     }
     | CREATE INDEX ID ON MULTI_INDEX LBRACE id_list RBRACE
+    {
+
+    }
     ;
 
 drop_index_stmt:      /*drop index 语句的语法解析树*/
@@ -538,10 +540,8 @@ select_stmt:        /*  select 语句的语法解析树*/
 
       if ($5 != nullptr) {
         for (auto join : *$5) {
-          $$->selection.relations.push_back(join.first);
-          for (auto cond : *join.second) {
-            $$->selection.conditions.push_back(cond);
-          }
+          $$->selection.join_relations.push_back(join.first);
+          $$->selection.join_conds.push_back(join.second);
         }
         delete $5;
       }
@@ -675,8 +675,8 @@ rel_list:
     ;
 join_list:
     INNER JOIN relation ON condition_list {
-      $$ = new std::vector<std::pair<std::string, std::vector<ConditionSqlNode> *>>();
-      $$->push_back({std::string($3), $5});
+      $$ = new std::vector<std::pair<std::string, std::vector<ConditionSqlNode>>>();
+      $$->push_back({std::string($3), *$5});
       free($3);
       // free($5);
     }
@@ -684,10 +684,10 @@ join_list:
       if ($6 != nullptr) {
         $$ = $6;
       } else {
-        $$ = new std::vector<std::pair<std::string, std::vector<ConditionSqlNode> *>>();
+        $$ = new std::vector<std::pair<std::string, std::vector<ConditionSqlNode>>>();
       }
 
-      $$->insert($$->begin(), {std::string($3), $5});
+      $$->insert($$->begin(), {std::string($3), *$5});
       free($3);
       // free($5);
     }

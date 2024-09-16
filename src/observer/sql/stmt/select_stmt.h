@@ -42,8 +42,10 @@ public:
   static RC create(Db *db, SelectSqlNode &select_sql, Stmt *&stmt);
 
 public:
-  const std::vector<Table *> &tables() const { return tables_; }
-  FilterStmt                 *filter_stmt() const { return filter_stmt_; }
+  const std::vector<Table *>      &tables() const { return tables_; }
+  const std::vector<Table *>      &join_tables() const { return join_tables_; }
+  FilterStmt                      *filter_stmt() const { return filter_stmt_; }
+  const std::vector<FilterStmt *> &join_conds() const { return join_conds_; }
 
   std::vector<std::unique_ptr<Expression>> &query_expressions() { return query_expressions_; }
   std::vector<std::unique_ptr<Expression>> &group_by() { return group_by_; }
@@ -51,6 +53,8 @@ public:
 private:
   std::vector<std::unique_ptr<Expression>> query_expressions_;
   std::vector<Table *>                     tables_;
+  std::vector<Table *>                     join_tables_;  // extra join table
   FilterStmt                              *filter_stmt_ = nullptr;
   std::vector<std::unique_ptr<Expression>> group_by_;
+  std::vector<FilterStmt *>                join_conds_;  // for join select
 };
