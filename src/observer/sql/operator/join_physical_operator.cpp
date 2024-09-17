@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2022/12/30.
 //
 
+// operator仅仅作为传递容器，计算还得交给filter?
 #include "sql/operator/join_physical_operator.h"
 
 NestedLoopJoinPhysicalOperator::NestedLoopJoinPhysicalOperator() {}

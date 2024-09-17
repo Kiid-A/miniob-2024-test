@@ -30,6 +30,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/index/latch_memo.h"
 #include "storage/index/bplus_tree_log.h"
 
+#define MAX_INDEX_FIELD_SIZE 16
+
 class BplusTreeHandler;
 class BplusTreeMiniTransaction;
 
@@ -56,29 +58,49 @@ enum class BplusTreeOperationType
 class AttrComparator
 {
 public:
-  void init(AttrType type, int length)
+  void init(int attr_num, AttrType *type, int *length)
   {
-    attr_type_   = type;
-    attr_length_ = length;
+    for (int i = 0; i < attr_num; i++) {
+      attr_type_.emplace_back(type[i]);
+      attr_length_.emplace_back(length[i]);
+    }
   }
 
-  int attr_length() const { return attr_length_; }
+  int attr_length() const
+  {
+    int sum_len = 0;
+    for (size_t i = 0; i < attr_length_.size(); i++) {
+      sum_len += attr_length_[i];
+    }
+    return sum_len;
+  }
 
   int operator()(const char *v1, const char *v2) const
   {
+    int comp_res = 0;
+    int offset   = 0;
     // TODO: optimized the comparison
-    Value left;
-    left.set_type(attr_type_);
-    left.set_data(v1, attr_length_);
-    Value right;
-    right.set_type(attr_type_);
-    right.set_data(v2, attr_length_);
-    return DataType::type_instance(attr_type_)->compare(left, right);
+    for (size_t i = 0; i < attr_type_.size(); i++) {
+      Value left;
+      left.set_type(attr_type_[i]);
+      left.set_data(v1 + offset, attr_length_[i]);
+      Value right;
+      right.set_type(attr_type_[i]);
+      right.set_data(v2 + offset, attr_length_[i]);
+      comp_res = DataType::type_instance(attr_type_[i])->compare(left, right);
+      if (comp_res == 0) {
+        offset += attr_length_[i];
+      } else {
+        return comp_res;
+      }
+    }
+
+    return comp_res;
   }
 
 private:
-  AttrType attr_type_;
-  int      attr_length_;
+  std::vector<AttrType> attr_type_;
+  std::vector<int>      attr_length_;
 };
 
 /**
@@ -89,7 +111,8 @@ private:
 class KeyComparator
 {
 public:
-  void init(AttrType type, int length) { attr_comparator_.init(type, length); }
+  void init(AttrType type, int length) { attr_comparator_.init(1, &type, &length); }
+  void init(int attr_num, AttrType *type, int *length) { attr_comparator_.init(attr_num, type, length); }
 
   const AttrComparator &attr_comparator() const { return attr_comparator_; }
 
@@ -116,23 +139,40 @@ private:
 class AttrPrinter
 {
 public:
-  void init(AttrType type, int length)
+  void init(int attr_num, AttrType *type, int *length)
   {
-    attr_type_   = type;
-    attr_length_ = length;
+    for (int i = 0; i < attr_num; i++) {
+      attr_type_.emplace_back(type[i]);
+      attr_length_.emplace_back(length[i]);
+    }
   }
 
-  int attr_length() const { return attr_length_; }
+  int attr_length() const 
+  {
+    int len_sum = 0;
+    for (size_t i = 0; i < attr_length_.size(); i++) {
+      len_sum += attr_length_[i];
+    }
+    return len_sum;
+  }
 
   string operator()(const char *v) const
   {
-    Value value(attr_type_, const_cast<char *>(v), attr_length_);
-    return value.to_string();
+    std::string str;
+    int offset = 0;
+    for (size_t i = 0; i < attr_type_.size(); i++) {
+      Value value;
+      value.set_type(attr_type_[i]);
+      value.set_data(v + offset, attr_length_[i]);
+      str += value.to_string() + ",";
+    }
+    str += " ";
+    return str;
   }
 
 private:
-  AttrType attr_type_;
-  int      attr_length_;
+  std::vector<AttrType> attr_type_;
+  std::vector<int>      attr_length_;
 };
 
 /**
@@ -142,7 +182,7 @@ private:
 class KeyPrinter
 {
 public:
-  void init(AttrType type, int length) { attr_printer_.init(type, length); }
+  void init(int attr_num, AttrType *type, int *length) { attr_printer_.init(attr_num, type, length); }
 
   const AttrPrinter &attr_printer() const { return attr_printer_; }
 
@@ -176,9 +216,12 @@ struct IndexFileHeader
   PageNum  root_page;          ///< 根节点在磁盘中的页号
   int32_t  internal_max_size;  ///< 内部节点最大的键值对数
   int32_t  leaf_max_size;      ///< 叶子节点最大的键值对数
-  int32_t  attr_length;        ///< 键值的长度
   int32_t  key_length;         ///< attr length + sizeof(RID)
-  AttrType attr_type;          ///< 键值的类型
+  int32_t  attr_num;           ///< 索引列数量
+  int32_t  field_id[MAX_INDEX_FIELD_SIZE];
+  int32_t  attr_length[MAX_INDEX_FIELD_SIZE];  ///< 键值的长度
+  int32_t  attr_offset[MAX_INDEX_FIELD_SIZE];  ///< 键值在record中的offset
+  AttrType attr_type[MAX_INDEX_FIELD_SIZE];    ///< 键值的类型
 
   const string to_string() const
   {
@@ -186,7 +229,7 @@ struct IndexFileHeader
 
     ss << "attr_length:" << attr_length << ","
        << "key_length:" << key_length << ","
-       << "attr_type:" << attr_type_to_string(attr_type) << ","
+       << "attr_type:" << attr_type << ","
        << "root_page:" << root_page << ","
        << "internal_max_size:" << internal_max_size << ","
        << "leaf_max_size:" << leaf_max_size << ";";
@@ -459,9 +502,9 @@ public:
    * @param internal_max_size 内部节点最大大小
    * @param leaf_max_size 叶子节点最大大小
    */
-  RC create(LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name, AttrType attr_type, int attr_length,
-      int internal_max_size = -1, int leaf_max_size = -1);
-  RC create(LogHandler &log_handler, DiskBufferPool &buffer_pool, AttrType attr_type, int attr_length,
+  RC create(LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name,
+      const std::vector<const FieldMeta *> &field_metas, int internal_max_size = -1, int leaf_max_size = -1);
+  RC create(LogHandler &log_handler, DiskBufferPool &buffer_pool, const std::vector<const FieldMeta *> &field_metas,
       int internal_max_size = -1, int leaf_max_size = -1);
 
   /**

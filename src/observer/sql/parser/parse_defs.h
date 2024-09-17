@@ -90,12 +90,12 @@ struct ConditionSqlNode
 
 struct SelectSqlNode
 {
-  std::vector<std::unique_ptr<Expression>>   expressions;  ///< 查询的表达式
-  std::vector<std::string>                   relations;    ///< 查询的表
-  std::vector<std::string>                   join_relations; ///< join的表
-  std::vector<std::vector<ConditionSqlNode>> join_conds;  ///< join条件,可能含有AND
-  std::vector<ConditionSqlNode>              conditions;  ///< 查询条件，使用AND串联起来多个条件
-  std::vector<std::unique_ptr<Expression>>   group_by;    ///< group by clause
+  std::vector<std::unique_ptr<Expression>>   expressions;     ///< 查询的表达式
+  std::vector<std::string>                   relations;       ///< 查询的表
+  std::vector<std::string>                   join_relations;  ///< join的表
+  std::vector<std::vector<ConditionSqlNode>> join_conds;      ///< join条件,可能含有AND
+  std::vector<ConditionSqlNode>              conditions;      ///< 查询条件，使用AND串联起来多个条件
+  std::vector<std::unique_ptr<Expression>>   group_by;        ///< group by clause
 };
 
 /**
@@ -181,9 +181,9 @@ struct DropTableSqlNode
  */
 struct CreateIndexSqlNode
 {
-  std::string index_name;      ///< Index name
-  std::string relation_name;   ///< Relation name
-  std::string attribute_name;  ///< Attribute name
+  std::string              index_name;      ///< Index name
+  std::string              relation_name;   ///< Relation name
+  std::vector<std::string> attribute_names;  ///< Attribute name
 };
 
 /**

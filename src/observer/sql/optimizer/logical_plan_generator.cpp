@@ -318,7 +318,7 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
     fields.push_back(Field(table, field_meta));
   }
   // 创建一个名为 table_get_oper 的逻辑操作符，用于表示从表中检索数据。
-  unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, ReadWriteMode::READ_ONLY ));
+  unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, ReadWriteMode::READ_WRITE));
   // 生成与 filter_stmt 相关的逻辑操作符。这个操作用于表示查询过滤条件。
   unique_ptr<LogicalOperator> predicate_oper;
   RC rc = create_plan(filter_stmt, predicate_oper);
