@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <common/log/log.h>
 
+#include "common/rc.h"
 #include "common/types.h"
 #include "sql/operator/calc_logical_operator.h"
 #include "sql/operator/delete_logical_operator.h"
@@ -101,7 +102,7 @@ RC LogicalPlanGenerator::create_plan(CalcStmt *calc_stmt, std::unique_ptr<Logica
  *    for b in B
  *      if a ...
  *        if b ...
- */ 
+ */
 RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
   unique_ptr<LogicalOperator> *last_oper = nullptr;
@@ -109,7 +110,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
   // outside operator
   unique_ptr<LogicalOperator> table_oper(nullptr);
   last_oper = &table_oper;
-  
+
   const std::vector<Table *> &tables = select_stmt->tables();
   for (Table *table : tables) {
     unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, ReadWriteMode::READ_ONLY));
@@ -123,11 +124,12 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     }
   }
 
-  const std::vector<Table *> &join_tables = select_stmt->join_tables();
-  const std::vector<FilterStmt *> &join_conds = select_stmt->join_conds();
+  const std::vector<Table *>      &join_tables = select_stmt->join_tables();
+  const std::vector<FilterStmt *> &join_conds  = select_stmt->join_conds();
+  unique_ptr<LogicalOperator> outside_oper(nullptr);
   for (size_t i = 0; i < join_conds.size(); i++) {
-  // TODO:we shall set predicate expression here! 
-  // find table first
+    // TODO:we shall set predicate expression here!
+    // find table first
     unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(join_tables[i], ReadWriteMode::READ_ONLY));
     unique_ptr<LogicalOperator> predicate_oper;
     if (join_conds[i] != nullptr) {
@@ -139,7 +141,8 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     }
     if (table_oper == nullptr) {
       if (predicate_oper) {
-        static_cast<TableGetLogicalOperator *>(table_get_oper.get())->set_predicates(std::move(predicate_oper->expressions()));
+        static_cast<TableGetLogicalOperator *>(table_get_oper.get())
+            ->set_predicates(std::move(predicate_oper->expressions()));
       }
       table_oper = std::move(table_get_oper);
     } else {
@@ -157,21 +160,23 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
   }
 
   unique_ptr<LogicalOperator> predicate_oper;
-
-  RC rc = create_plan(select_stmt->filter_stmt(), predicate_oper);
-  if (OB_FAIL(rc)) {
-    LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
-    return rc;
-  }
-
-  if (predicate_oper) {
-    if (*last_oper) {
-      predicate_oper->add_child(std::move(*last_oper));
+  if (select_stmt->filter_stmt() != nullptr) {
+    RC rc = create_plan(select_stmt->filter_stmt(), predicate_oper);
+    if (OB_FAIL(rc)) {
+      LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
+      return rc;
     }
 
-    last_oper = &predicate_oper;
+    if (predicate_oper) {
+      if (*last_oper) {
+        predicate_oper->add_child(std::move(*last_oper));
+      }
+
+      last_oper = &predicate_oper;
+    }
   }
 
+  RC rc = RC::SUCCESS;
   unique_ptr<LogicalOperator> group_by_oper;
   rc = create_group_by_plan(select_stmt, group_by_oper);
   if (OB_FAIL(rc)) {
@@ -321,7 +326,7 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
   unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, ReadWriteMode::READ_WRITE));
   // 生成与 filter_stmt 相关的逻辑操作符。这个操作用于表示查询过滤条件。
   unique_ptr<LogicalOperator> predicate_oper;
-  RC rc = create_plan(filter_stmt, predicate_oper);
+  RC                          rc = create_plan(filter_stmt, predicate_oper);
   if (rc != RC::SUCCESS) {
     return rc;
   }
@@ -329,7 +334,7 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
   unique_ptr<LogicalOperator> update_oper(
       new UpdateLogicalOperator(table, *update_stmt->values(), update_stmt->attribute_name().c_str()));
   if (predicate_oper) {
-    
+
     // 如果存在查询过滤条件
     predicate_oper->add_child(std::move(table_get_oper));
     update_oper->add_child(std::move(predicate_oper));

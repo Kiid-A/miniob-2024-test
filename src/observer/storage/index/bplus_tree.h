@@ -78,9 +78,9 @@ public:
   int operator()(const char *v1, const char *v2) const
   {
     int comp_res = 0;
-    int offset   = 0;
+    int offset   = attr_length_[0];
     // TODO: optimized the comparison
-    for (size_t i = 0; i < attr_type_.size(); i++) {
+    for (size_t i = 1; i < attr_type_.size(); i++) {
       Value left;
       left.set_type(attr_type_[i]);
       left.set_data(v1 + offset, attr_length_[i]);
