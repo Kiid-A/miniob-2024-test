@@ -42,6 +42,8 @@ public:
 
   RC sync() override;
 
+  char *make_key(const char *record);
+
 private:
   bool             inited_ = false;
   Table           *table_  = nullptr;

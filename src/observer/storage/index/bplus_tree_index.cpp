@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "storage/index/bplus_tree_index.h"
 #include "common/log/log.h"
+#include "common/rc.h"
 #include "storage/table/table.h"
 #include "storage/db/db.h"
 
@@ -31,7 +32,7 @@ RC BplusTreeIndex::create(
   Index::init(index_meta, field_metas);
 
   BufferPoolManager &bpm = table->db()->buffer_pool_manager();
-  RC rc = index_handler_.create(table->db()->log_handler(), bpm, file_name, field_metas);
+  RC                 rc  = index_handler_.create(table->db()->log_handler(), bpm, file_name, field_metas);
   if (RC::SUCCESS != rc) {
     LOG_WARN("Failed to create index_handler, file_name:%s, index:%s, field:%s, rc:%s",
         file_name, index_meta.name(), index_meta.fields().data()->c_str(), strrc(rc));
@@ -82,15 +83,43 @@ RC BplusTreeIndex::close()
   return RC::SUCCESS;
 }
 
+// char *BplusTreeIndex::make_key(const char *record)
+// {
+//   char *data = (char *)malloc(size_);
+//   int offset = 0;
+//   for (auto field : field_metas_) {
+//     memcpy(data + offset, record + field.offset(), field.len());
+//     offset += field.len();
+//   }
+
+//   return data;
+// }
+
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
-  // return index_handler_.insert_entry(record + field_meta_.offset(), rid);
+  // RC rc = RC::SUCCESS;
+  // for (auto field : field_metas_) {
+  //   RC rc = index_handler_.insert_entry(record + field.offset(), rid);
+  //   if (rc != RC::SUCCESS) {
+  //     return rc;
+  //   }
+  // }
+
+  // return rc;
   return index_handler_.insert_entry(record, rid);
 }
 
 RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
 {
-  // return index_handler_.delete_entry(record + field_meta_.offset(), rid);
+  // RC rc = RC::SUCCESS;
+  // for (auto field : field_metas_) {
+  //   RC rc = index_handler_.delete_entry(record + field.offset(), rid);
+  //   if (rc != RC::SUCCESS) {
+  //     return rc;
+  //   }
+  // }
+
+  // return rc;
   return index_handler_.delete_entry(record, rid);
 }
 

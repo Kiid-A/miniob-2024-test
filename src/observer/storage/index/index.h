@@ -83,6 +83,7 @@ protected:
 protected:
   IndexMeta index_meta_;  ///< 索引的元数据
   std::vector<FieldMeta> field_metas_;  ///< 当前实现仅考虑一个字段的索引
+  int size_;
 };
 
 /**

@@ -113,7 +113,8 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
 
   const std::vector<Table *> &tables = select_stmt->tables();
   for (Table *table : tables) {
-    unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, ReadWriteMode::READ_ONLY));
+    std::vector<Field>          fields;
+    unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, ReadWriteMode::READ_ONLY));
     if (table_oper == nullptr) {
       table_oper = std::move(table_get_oper);
     } else {
@@ -126,11 +127,13 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
 
   const std::vector<Table *>      &join_tables = select_stmt->join_tables();
   const std::vector<FilterStmt *> &join_conds  = select_stmt->join_conds();
-  unique_ptr<LogicalOperator> outside_oper(nullptr);
+  unique_ptr<LogicalOperator>      outside_oper(nullptr);
   for (size_t i = 0; i < join_conds.size(); i++) {
     // TODO:we shall set predicate expression here!
     // find table first
-    unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(join_tables[i], ReadWriteMode::READ_ONLY));
+    std::vector<Field>          fields;
+    unique_ptr<LogicalOperator> table_get_oper(
+        new TableGetLogicalOperator(join_tables[i], fields, ReadWriteMode::READ_ONLY));
     unique_ptr<LogicalOperator> predicate_oper;
     if (join_conds[i] != nullptr) {
       RC rc = LogicalPlanGenerator::create_plan(join_conds[i], predicate_oper);
@@ -176,7 +179,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     }
   }
 
-  RC rc = RC::SUCCESS;
+  RC                          rc = RC::SUCCESS;
   unique_ptr<LogicalOperator> group_by_oper;
   rc = create_group_by_plan(select_stmt, group_by_oper);
   if (OB_FAIL(rc)) {
@@ -289,12 +292,17 @@ RC LogicalPlanGenerator::create_plan(InsertStmt *insert_stmt, unique_ptr<Logical
 
 RC LogicalPlanGenerator::create_plan(DeleteStmt *delete_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
-  Table                      *table       = delete_stmt->table();
-  FilterStmt                 *filter_stmt = delete_stmt->filter_stmt();
-  unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, ReadWriteMode::READ_WRITE));
+  Table             *table       = delete_stmt->table();
+  FilterStmt        *filter_stmt = delete_stmt->filter_stmt();
+  std::vector<Field> fields;
+  for (int i = table->table_meta().sys_field_num(); i < table->table_meta().field_num(); i++) {
+    const FieldMeta *field_meta = table->table_meta().field(i);
+    fields.push_back(Field(table, field_meta));
+  }
+
+  unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, ReadWriteMode::READ_WRITE));
 
   unique_ptr<LogicalOperator> predicate_oper;
-
   RC rc = create_plan(filter_stmt, predicate_oper);
   if (rc != RC::SUCCESS) {
     return rc;
@@ -303,8 +311,10 @@ RC LogicalPlanGenerator::create_plan(DeleteStmt *delete_stmt, unique_ptr<Logical
   unique_ptr<LogicalOperator> delete_oper(new DeleteLogicalOperator(table));
 
   if (predicate_oper) {
-    predicate_oper->add_child(std::move(table_get_oper));
-    delete_oper->add_child(std::move(predicate_oper));
+    static_cast<TableGetLogicalOperator *>(table_get_oper.get())
+            ->set_predicates(std::move(predicate_oper->expressions()));
+    // predicate_oper->add_child(std::move(table_get_oper));
+    delete_oper->add_child(std::move(table_get_oper));
   } else {
     delete_oper->add_child(std::move(table_get_oper));
   }
@@ -323,7 +333,7 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
     fields.push_back(Field(table, field_meta));
   }
   // 创建一个名为 table_get_oper 的逻辑操作符，用于表示从表中检索数据。
-  unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, ReadWriteMode::READ_WRITE));
+  unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, ReadWriteMode::READ_WRITE));
   // 生成与 filter_stmt 相关的逻辑操作符。这个操作用于表示查询过滤条件。
   unique_ptr<LogicalOperator> predicate_oper;
   RC                          rc = create_plan(filter_stmt, predicate_oper);
