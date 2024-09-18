@@ -174,7 +174,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
       if (*last_oper) {
         predicate_oper->add_child(std::move(*last_oper));
       }
-
+    
       last_oper = &predicate_oper;
     }
   }

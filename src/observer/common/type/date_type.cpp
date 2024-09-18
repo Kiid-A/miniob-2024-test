@@ -82,11 +82,28 @@ RC DateType::negative(const Value &val, Value &result) const { return RC::UNSUPP
 
 RC DateType::cast_to(const Value &val, AttrType type, Value &result) const
 {
-  if (type != AttrType::DATES) {
-    return RC::UNIMPLEMENTED;
+  result.set_type(type);
+
+  switch (type) {
+    case AttrType::INTS: {
+      result.set_int(val.get_int());
+    } break;
+
+    case AttrType::FLOATS: {
+      result.set_float(val.get_int());
+    } break;
+
+    case AttrType::CHARS: {
+      result.set_string_from_other(val);
+    } break;
+
+    case AttrType::DATES: {
+      result.set_date((int)val.get_int());
+    } break;
+
+    default:
+      return RC::UNIMPLEMENTED;
   }
-  result.set_type(AttrType::DATES);
-  result.set_int(val.get_int());
   return RC::SUCCESS;
 }
 

@@ -25,9 +25,10 @@ See the Mulan PSL v2 for more details. */
 class IndexScanPhysicalOperator : public PhysicalOperator
 {
 public:
+  IndexScanPhysicalOperator(Table *table, Index *index, ReadWriteMode mode, const std::vector<Value> &left_value,
+      bool left_inclusive, const std::vector<Value> &right_value, bool right_inclusive);
   IndexScanPhysicalOperator(Table *table, Index *index, ReadWriteMode mode, const Value *left_value,
       bool left_inclusive, const Value *right_value, bool right_inclusive);
-
   virtual ~IndexScanPhysicalOperator() = default;
 
   PhysicalOperatorType type() const override { return PhysicalOperatorType::INDEX_SCAN; }
@@ -39,6 +40,7 @@ public:
   RC close() override;
 
   Tuple *current_tuple() override;
+  RC     make_data(const std::vector<Value> &values, std::vector<FieldMeta> &meta, Table *table, char *out);
 
   void set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs);
 

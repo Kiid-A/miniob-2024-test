@@ -33,7 +33,7 @@ Value::Value(const Value &other)
   this->attr_type_ = other.attr_type_;
   this->length_    = other.length_;
   // printf("\nother own_data: %d\n", other.own_data_);
-  this->own_data_  = other.own_data_;
+  this->own_data_ = other.own_data_;
   switch (this->attr_type_) {
     case AttrType::CHARS: {
       set_string_from_other(other);
@@ -128,7 +128,7 @@ void Value::set_data(char *data, int length)
     } break;
     case AttrType::DATES: {
       value_.int_value_ = *(int *)data;
-      length_ = length;
+      length_           = length;
     } break;
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
@@ -161,9 +161,9 @@ void Value::set_boolean(bool val)
 
 void Value::set_date(int val)
 {
-  attr_type_ = AttrType::DATES;
+  attr_type_        = AttrType::DATES;
   value_.int_value_ = val;
-  length_ = sizeof(val);
+  length_           = sizeof(val);
 }
 
 void Value::set_string(const char *s, int len /*= 0*/)
@@ -245,7 +245,10 @@ string Value::to_string() const
   return res;
 }
 
-int Value::compare(const Value &other) const { return DataType::type_instance(this->attr_type_)->compare(*this, other); }
+int Value::compare(const Value &other) const
+{
+  return DataType::type_instance(this->attr_type_)->compare(*this, other);
+}
 
 int Value::get_int() const
 {

@@ -90,9 +90,9 @@ public:
       right.set_data(v2 + offset, attr_length_[i]);
       comp_res = DataType::type_instance(attr_type_[i])->compare(left, right);
       if (comp_res == 0) {
-        // offset += attr_length_[i];
+        offset += attr_length_[i];
       } else {
-      return comp_res;
+        return comp_res;
       }
     }
 

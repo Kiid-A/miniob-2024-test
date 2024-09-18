@@ -13,16 +13,13 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/operator/index_scan_physical_operator.h"
+#include "common/type/attr_type.h"
 #include "storage/index/index.h"
 #include "storage/trx/trx.h"
 
-IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index, ReadWriteMode mode, const Value *left_value,
-    bool left_inclusive, const Value *right_value, bool right_inclusive)
-    : table_(table),
-      index_(index),
-      mode_(mode),
-      left_inclusive_(left_inclusive),
-      right_inclusive_(right_inclusive)
+IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index, ReadWriteMode mode,
+    const Value *left_value, bool left_inclusive, const Value *right_value, bool right_inclusive)
+    : table_(table), index_(index), mode_(mode), left_inclusive_(left_inclusive), right_inclusive_(right_inclusive)
 {
   if (left_value) {
     left_value_ = *left_value;
@@ -30,6 +27,52 @@ IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index,
   if (right_value) {
     right_value_ = *right_value;
   }
+}
+
+RC IndexScanPhysicalOperator::make_data(
+    const std::vector<Value> &values, std::vector<FieldMeta> &meta, Table *table, char *out)
+{
+  std::vector<char> ret;
+  int size = 0;
+  for (auto &field : meta) {
+    size += field.len();
+  }
+  ret.resize(size);
+  out = ret.data();
+  for (int i = 0; i < values.size() && i < meta.size(); i++) {
+    Value &value = const_cast<Value &>(values[i]);
+    memcpy(out, value.data(), meta[i].len());
+    out += meta[i].len();
+  }
+  return RC::SUCCESS;
+}
+
+IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index, ReadWriteMode mode,
+    const std::vector<Value> &left_value, bool left_inclusive, const std::vector<Value> &right_value,
+    bool right_inclusive)
+    : table_(table), index_(index), mode_(mode), left_inclusive_(left_inclusive), right_inclusive_(right_inclusive)
+{
+  std::vector<FieldMeta> fields = index_->field_metas();
+  left_value_.set_type(AttrType::CHARS);
+  right_value_.set_type(AttrType::CHARS);
+  
+  RC rc = RC::SUCCESS;
+  int size = 0;
+  for (auto &field : fields) {
+    size += field.len();
+  }
+  char *ld = 0;
+  rc = make_data(left_value, fields, table, ld);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("fail to make data");
+  }
+  left_value_.set_data(ld, size);
+  char *rd = 0;
+  rc = make_data(right_value, fields, table, rd);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("fail to make data");
+  }
+  right_value_.set_data(rd, size);
 }
 
 RC IndexScanPhysicalOperator::open(Trx *trx)

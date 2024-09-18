@@ -44,9 +44,11 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/table_scan_vec_physical_operator.h"
 #include "sql/operator/update_logical_operator.h"
 #include "sql/operator/update_physical_operator.h"
+#include "storage/index/index.h"
 #include "sql/optimizer/physical_plan_generator.h"
 
 using namespace std;
+class Index;
 
 RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator, unique_ptr<PhysicalOperator> &oper)
 {
@@ -130,12 +132,13 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
   vector<unique_ptr<Expression>> &predicates = table_get_oper.predicates();
   // 看看是否有可以用于索引查找的表达式
   Table *table = table_get_oper.table();
+  Index *index = nullptr;
 
-  Index     *index      = nullptr;
-  ValueExpr *value_expr = nullptr;
+  std::vector<std::pair<Field, Value>> field_values;
   for (auto &expr : predicates) {
     if (expr->type() == ExprType::COMPARISON) {
-      auto comparison_expr = static_cast<ComparisonExpr *>(expr.get());
+      ValueExpr *value_expr      = nullptr;
+      auto       comparison_expr = static_cast<ComparisonExpr *>(expr.get());
       // 简单处理，就找等值查询
       if (comparison_expr->comp() != EQUAL_TO) {
         continue;
@@ -164,23 +167,42 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
       }
 
       const Field &field = field_expr->field();
-      index              = table->find_index_by_field(field.field_name());
-      if (nullptr != index) {
-        break;
-      }
+      Value        value;
+      ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
+      if (value_expr->try_get_value(value) != RC::SUCCESS)
+        continue;
+      field_values.push_back({field, value});
     }
   }
 
-  if (index != nullptr) {
-    ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
+  std::vector<const char *> fields;
+  for (auto &[f, value] : field_values) {
+    fields.push_back(f.field_name());
+  }
+  index = table->find_index_by_fields(fields);
 
-    const Value               &value           = value_expr->get_value();
+  if (index != nullptr) {
+    std::vector<Value> values;
+    const IndexMeta   &index_meta = index->index_meta();
+    for (auto &field : index_meta.fields()) {
+      bool found = false;
+      for (auto &[f, value] : field_values) {
+        if (strcmp(f.field_name(), field.c_str()) == 0) {
+          found = true;
+          values.push_back(value);
+          break;
+        }
+      }
+      if (!found) {
+        break;
+      }
+    }
     IndexScanPhysicalOperator *index_scan_oper = new IndexScanPhysicalOperator(table,
         index,
         table_get_oper.read_write_mode(),
-        &value,
+        values,
         true /*left_inclusive*/,
-        &value,
+        values,
         true /*right_inclusive*/);
 
     index_scan_oper->set_predicates(std::move(predicates));
@@ -367,25 +389,27 @@ RC PhysicalPlanGenerator::create_plan(GroupByLogicalOperator &logical_oper, std:
   return rc;
 }
 
-RC PhysicalPlanGenerator::create_plan(UpdateLogicalOperator& update_oper, std::unique_ptr<PhysicalOperator>& oper) {
-    vector<unique_ptr<LogicalOperator>>& child_opers = update_oper.children();
-    unique_ptr<PhysicalOperator> child_physical_oper;
+RC PhysicalPlanGenerator::create_plan(UpdateLogicalOperator &update_oper, std::unique_ptr<PhysicalOperator> &oper)
+{
+  vector<unique_ptr<LogicalOperator>> &child_opers = update_oper.children();
+  unique_ptr<PhysicalOperator>         child_physical_oper;
 
-    RC rc = RC::SUCCESS;
-    if (!child_opers.empty()) {
-        LogicalOperator* child_oper = child_opers.front().get();
-        rc = create(*child_oper, child_physical_oper);
-        if (rc != RC::SUCCESS) {
-            LOG_WARN("failed to create physical operator. rc=%s", strrc(rc));
-            return rc;
-        }
+  RC rc = RC::SUCCESS;
+  if (!child_opers.empty()) {
+    LogicalOperator *child_oper = child_opers.front().get();
+    rc                          = create(*child_oper, child_physical_oper);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to create physical operator. rc=%s", strrc(rc));
+      return rc;
     }
-    oper = unique_ptr<PhysicalOperator>(new UpdatePhysicalOperator(update_oper.table(), *update_oper.value(), update_oper.field_name()));
+  }
+  oper = unique_ptr<PhysicalOperator>(
+      new UpdatePhysicalOperator(update_oper.table(), *update_oper.value(), update_oper.field_name()));
 
-    if (child_physical_oper) {
-        oper->add_child(std::move(child_physical_oper));
-    }
-    return rc;
+  if (child_physical_oper) {
+    oper->add_child(std::move(child_physical_oper));
+  }
+  return rc;
 }
 
 RC PhysicalPlanGenerator::create_vec_plan(TableGetLogicalOperator &table_get_oper, unique_ptr<PhysicalOperator> &oper)
