@@ -78,9 +78,10 @@ public:
   int operator()(const char *v1, const char *v2) const
   {
     int comp_res = 0;
-    int offset   = attr_length_[0];
+    // int offset   = attr_length_[0];
+    int offset = 0;
     // TODO: optimized the comparison
-    for (size_t i = 1; i < attr_type_.size(); i++) {
+    for (size_t i = 0; i < attr_type_.size(); i++) {
       Value left;
       left.set_type(attr_type_[i]);
       left.set_data(v1 + offset, attr_length_[i]);
@@ -88,11 +89,11 @@ public:
       right.set_type(attr_type_[i]);
       right.set_data(v2 + offset, attr_length_[i]);
       comp_res = DataType::type_instance(attr_type_[i])->compare(left, right);
-      if (comp_res == 0) {
-        offset += attr_length_[i];
-      } else {
+      // if (comp_res == 0) {
+        // offset += attr_length_[i];
+      // } else {
         return comp_res;
-      }
+      // }
     }
 
     return comp_res;
