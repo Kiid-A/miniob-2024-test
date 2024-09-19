@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/global_context.h"
 #include "sql/parser/parse_defs.h"
 #include "storage/buffer/disk_buffer_pool.h"
+#include "bplus_tree.h"
 
 using namespace common;
 
@@ -784,7 +785,7 @@ RC BplusTreeHandler::sync()
   return disk_buffer_pool_->flush_all_pages();
 }
 
-RC BplusTreeHandler::create(LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name,
+RC BplusTreeHandler::create(const bool unique, LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name,
     const std::vector<const FieldMeta *> &field_metas, int internal_max_size /* = -1*/, int leaf_max_size /* = -1 */)
 {
   RC rc = bpm.create_file(file_name);
@@ -803,7 +804,7 @@ RC BplusTreeHandler::create(LogHandler &log_handler, BufferPoolManager &bpm, con
   }
   LOG_INFO("Successfully open index file %s.", file_name);
 
-  rc = this->create(log_handler, *bp, field_metas, internal_max_size, leaf_max_size);
+  rc = this->create(unique, log_handler, *bp, field_metas, internal_max_size, leaf_max_size);
   if (OB_FAIL(rc)) {
     bpm.close_file(file_name);
     return rc;
@@ -813,7 +814,7 @@ RC BplusTreeHandler::create(LogHandler &log_handler, BufferPoolManager &bpm, con
   return rc;
 }
 
-RC BplusTreeHandler::create(LogHandler &log_handler, DiskBufferPool &buffer_pool,
+RC BplusTreeHandler::create(const bool unique, LogHandler &log_handler, DiskBufferPool &buffer_pool,
     const std::vector<const FieldMeta *> &field_metas, int internal_max_size /* = -1 */, int leaf_max_size /* = -1 */)
 {
   int attr_length = 0;
@@ -855,6 +856,7 @@ RC BplusTreeHandler::create(LogHandler &log_handler, DiskBufferPool &buffer_pool
   file_header->leaf_max_size     = leaf_max_size;
   file_header->root_page         = BP_INVALID_PAGE_NUM;
   file_header->attr_num          = field_metas.size();
+  file_header->unique            = unique;
   for (size_t i = 0; i < field_metas.size(); i++) {
     file_header->attr_type[i]   = field_metas[i]->type();
     file_header->attr_offset[i] = field_metas[i]->offset();
@@ -875,7 +877,7 @@ RC BplusTreeHandler::create(LogHandler &log_handler, DiskBufferPool &buffer_pool
     return RC::NOMEM;
   }
 
-  key_comparator_.init(file_header->attr_num, file_header->attr_type, file_header->attr_length);
+  key_comparator_.init(file_header->attr_num, file_header->attr_type, file_header->attr_length, unique);
   key_printer_.init(file_header->attr_num, file_header->attr_type, file_header->attr_length);
 
   /*
@@ -947,7 +949,7 @@ RC BplusTreeHandler::open(LogHandler &log_handler, DiskBufferPool &buffer_pool)
   // close old page_handle
   buffer_pool.unpin_page(frame);
 
-  key_comparator_.init(file_header_.attr_num, file_header_.attr_type, file_header_.attr_length);
+  key_comparator_.init(file_header_.attr_num, file_header_.attr_type, file_header_.attr_length, file_header_.unique);
   key_printer_.init(file_header_.attr_num, file_header_.attr_type, file_header_.attr_length);
   LOG_INFO("Successfully open index");
   return RC::SUCCESS;
@@ -1429,7 +1431,7 @@ RC BplusTreeHandler::recover_init_header_page(
   header_dirty_ = false;
   frame->mark_dirty();
 
-  key_comparator_.init(file_header_.attr_num, file_header_.attr_type, file_header_.attr_length);
+  key_comparator_.init(file_header_.attr_num, file_header_.attr_type, file_header_.attr_length, file_header_.unique);
   key_printer_.init(file_header_.attr_num, file_header_.attr_type, file_header_.attr_length);
 
   return RC::SUCCESS;

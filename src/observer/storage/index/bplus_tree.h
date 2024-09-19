@@ -113,7 +113,11 @@ class KeyComparator
 {
 public:
   void init(AttrType type, int length) { attr_comparator_.init(1, &type, &length); }
-  void init(int attr_num, AttrType *type, int *length) { attr_comparator_.init(attr_num, type, length); }
+  void init(int attr_num, AttrType *type, int *length, bool unique)
+  {
+    attr_comparator_.init(attr_num, type, length);
+    unique_ = unique;
+  }
 
   const AttrComparator &attr_comparator() const { return attr_comparator_; }
 
@@ -122,14 +126,16 @@ public:
     int result = attr_comparator_(v1, v2);
     if (result != 0) {
       return result;
+    } else if (!unique_) {
+      const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());
+      const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
+      return RID::compare(rid1, rid2);
     }
-
-    const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());
-    const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
-    return RID::compare(rid1, rid2);
+    return result;
   }
 
 private:
+  bool           unique_;
   AttrComparator attr_comparator_;
 };
 
@@ -148,7 +154,7 @@ public:
     }
   }
 
-  int attr_length() const 
+  int attr_length() const
   {
     int len_sum = 0;
     for (size_t i = 0; i < attr_length_.size(); i++) {
@@ -160,7 +166,7 @@ public:
   string operator()(const char *v) const
   {
     std::string str;
-    int offset = 0;
+    int         offset = 0;
     for (size_t i = 0; i < attr_type_.size(); i++) {
       Value value;
       value.set_type(attr_type_[i]);
@@ -214,6 +220,7 @@ struct IndexFileHeader
     memset(this, 0, sizeof(IndexFileHeader));
     root_page = BP_INVALID_PAGE_NUM;
   }
+  bool     unique;
   PageNum  root_page;          ///< 根节点在磁盘中的页号
   int32_t  internal_max_size;  ///< 内部节点最大的键值对数
   int32_t  leaf_max_size;      ///< 叶子节点最大的键值对数
@@ -503,9 +510,9 @@ public:
    * @param internal_max_size 内部节点最大大小
    * @param leaf_max_size 叶子节点最大大小
    */
-  RC create(LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name,
+  RC create(const bool unique, LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name,
       const std::vector<const FieldMeta *> &field_metas, int internal_max_size = -1, int leaf_max_size = -1);
-  RC create(LogHandler &log_handler, DiskBufferPool &buffer_pool, const std::vector<const FieldMeta *> &field_metas,
+  RC create(const bool unique, LogHandler &log_handler, DiskBufferPool &buffer_pool, const std::vector<const FieldMeta *> &field_metas,
       int internal_max_size = -1, int leaf_max_size = -1);
 
   /**

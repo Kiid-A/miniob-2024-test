@@ -369,7 +369,7 @@ RC Table::get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode m
   return rc;
 }
 
-RC Table::create_index(Trx *trx, const std::vector<const FieldMeta *> &field_metas, const char *index_name)
+RC Table::create_index(Trx *trx, const std::vector<const FieldMeta *> &field_metas, const char *index_name, const bool unique)
 {
   if (common::is_blank(index_name) || field_metas.empty()) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
@@ -378,7 +378,7 @@ RC Table::create_index(Trx *trx, const std::vector<const FieldMeta *> &field_met
 
   IndexMeta new_index_meta;
 
-  RC rc = new_index_meta.init(index_name, field_metas);
+  RC rc = new_index_meta.init(index_name, field_metas, unique);
   if (rc != RC::SUCCESS) {
     std::string field_names = field_metas[0]->name();
     for (size_t i = 0; i < field_metas.size(); i++) {
@@ -394,7 +394,7 @@ RC Table::create_index(Trx *trx, const std::vector<const FieldMeta *> &field_met
   BplusTreeIndex *index      = new BplusTreeIndex();
   string          index_file = table_index_file(base_dir_.c_str(), name(), index_name);
 
-  rc = index->create(this, index_file.c_str(), new_index_meta, field_metas);
+  rc = index->create(this, index_file.c_str(), new_index_meta, field_metas, unique);
   if (rc != RC::SUCCESS) {
     delete index;
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));

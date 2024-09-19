@@ -29,8 +29,8 @@ class FieldMeta;
 class CreateIndexStmt : public Stmt
 {
 public:
-  CreateIndexStmt(Table *table, std::vector<const FieldMeta *> field_metas, const std::string &index_name)
-      : table_(table), field_metas_(field_metas), index_name_(index_name)
+  CreateIndexStmt(Table *table, std::vector<const FieldMeta *> field_metas, const std::string &index_name, bool unique)
+      : unique_(unique), table_(table), field_metas_(field_metas), index_name_(index_name)
   {}
 
   virtual ~CreateIndexStmt() = default;
@@ -40,12 +40,14 @@ public:
   Table                                *table() const { return table_; }
   const std::vector<const FieldMeta *> &field_metas() const { return field_metas_; }
   const std::string                    &index_name() const { return index_name_; }
+  const bool                            unique() const { return unique_; }
 
 public:
   static RC create(Db *db, const CreateIndexSqlNode &create_index, Stmt *&stmt);
 
 private:
-  Table                         *table_ = nullptr;
+  bool                           unique_ = false;
+  Table                         *table_  = nullptr;
   std::vector<const FieldMeta *> field_metas_;
   std::string                    index_name_;
 };

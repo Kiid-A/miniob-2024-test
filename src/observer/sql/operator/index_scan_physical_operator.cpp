@@ -55,7 +55,7 @@ IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index,
   std::vector<FieldMeta> fields = index_->field_metas();
   left_value_.set_type(AttrType::CHARS);
   right_value_.set_type(AttrType::CHARS);
-  
+
   RC rc = RC::SUCCESS;
   int size = 0;
   for (auto &field : fields) {
@@ -73,6 +73,9 @@ IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index,
     LOG_WARN("fail to make data");
   }
   right_value_.set_data(rd, size);
+
+  free(ld);
+  free(rd);
 }
 
 RC IndexScanPhysicalOperator::open(Trx *trx)
