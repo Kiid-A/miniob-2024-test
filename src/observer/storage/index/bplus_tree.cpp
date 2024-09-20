@@ -223,6 +223,20 @@ char *LeafIndexNodeHandler::value_at(int index)
   return __value_at(index);
 }
 
+int LeafIndexNodeHandler::lookup_unique(
+    const KeyComparator &comparator, const char *key, bool *found /* = nullptr */) const
+{
+  const int                    size = this->size();
+  common::BinaryIterator<char> iter_begin(item_size(), __key_at(0));
+  common::BinaryIterator<char> iter_end(item_size(), __key_at(size));
+  common::BinaryIterator<char> iter = lower_bound(iter_begin, iter_end, key, comparator, found);
+  if (found && *found) {
+    if (comparator.attr_comparator()(key, *iter) != 0)
+      *found = false;
+  }
+  return iter - iter_begin;
+}
+
 int LeafIndexNodeHandler::lookup(const KeyComparator &comparator, const char *key, bool *found /* = nullptr */) const
 {
   const int                    size = this->size();
@@ -952,6 +966,8 @@ RC BplusTreeHandler::open(LogHandler &log_handler, DiskBufferPool &buffer_pool)
   key_comparator_.init(file_header_.attr_num, file_header_.attr_type, file_header_.attr_length, file_header_.unique);
   key_printer_.init(file_header_.attr_num, file_header_.attr_type, file_header_.attr_length);
   LOG_INFO("Successfully open index");
+
+  unique_ = file_header_.unique;
   return RC::SUCCESS;
 }
 
@@ -1254,8 +1270,14 @@ RC BplusTreeHandler::insert_entry_into_leaf_node(
     BplusTreeMiniTransaction &mtr, Frame *frame, const char *key, const RID *rid)
 {
   LeafIndexNodeHandler leaf_node(mtr, file_header_, frame);
-  bool                 exists          = false;  // 该数据是否已经存在指定的叶子节点中了
-  int                  insert_position = leaf_node.lookup(key_comparator_, key, &exists);
+  bool                 exists = false;  // 该数据是否已经存在指定的叶子节点中了
+  int                  insert_position;
+  if (unique_) {
+    insert_position = leaf_node.lookup_unique(key_comparator_, key, &exists);
+  } else {
+    insert_position = leaf_node.lookup(key_comparator_, key, &exists);
+  }
+
   if (exists) {
     LOG_TRACE("entry exists");
     return RC::RECORD_DUPLICATE_KEY;

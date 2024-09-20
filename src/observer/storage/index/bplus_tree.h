@@ -401,6 +401,7 @@ public:
    * 如果key已经存在，会设置found的值。
    */
   int lookup(const KeyComparator &comparator, const char *key, bool *found = nullptr) const;
+  int lookup_unique(const KeyComparator &comparator, const char *key, bool *found = nullptr) const;
 
   RC  insert(int index, const char *key, const char *value);
   RC  remove(int index);
@@ -704,6 +705,8 @@ protected:
 private:
   friend class BplusTreeScanner;
   friend class BplusTreeTester;
+
+  bool unique_ = false;
 };
 
 /**
