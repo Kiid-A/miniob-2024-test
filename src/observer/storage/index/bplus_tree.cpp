@@ -230,7 +230,7 @@ int LeafIndexNodeHandler::lookup_unique(
   common::BinaryIterator<char> iter_begin(item_size(), __key_at(0));
   common::BinaryIterator<char> iter_end(item_size(), __key_at(size));
   common::BinaryIterator<char> iter = lower_bound(iter_begin, iter_end, key, comparator, found);
-  if (found && *found) {
+  if (*found) {
     if (comparator.attr_comparator()(key, *iter) != 0)
       *found = false;
   }
@@ -831,6 +831,7 @@ RC BplusTreeHandler::create(const bool unique, LogHandler &log_handler, BufferPo
 RC BplusTreeHandler::create(const bool unique, LogHandler &log_handler, DiskBufferPool &buffer_pool,
     const std::vector<const FieldMeta *> &field_metas, int internal_max_size /* = -1 */, int leaf_max_size /* = -1 */)
 {
+  unique_ = unique;
   int attr_length = 0;
   for (auto field_meta : field_metas) {
     attr_length += field_meta->len();
@@ -1272,6 +1273,7 @@ RC BplusTreeHandler::insert_entry_into_leaf_node(
   LeafIndexNodeHandler leaf_node(mtr, file_header_, frame);
   bool                 exists = false;  // 该数据是否已经存在指定的叶子节点中了
   int                  insert_position;
+
   if (unique_) {
     insert_position = leaf_node.lookup_unique(key_comparator_, key, &exists);
   } else {
@@ -1815,12 +1817,13 @@ RC BplusTreeHandler::delete_entry(const char *user_key, const RID *rid)
   }
   char *key = static_cast<char *>(pkey.get());
 
-  int offset = file_header_.attr_length[0];
-  memcpy(key, user_key, file_header_.attr_length[0]);
-  for (int i = 1; i < file_header_.attr_num; i++) {
+  int offset = 0;
+  // memcpy(key, user_key, file_header_.attr_length[0]);
+  for (int i = 0; i < file_header_.attr_num; i++) {
     memcpy(key + offset, user_key + file_header_.attr_offset[i], file_header_.attr_length[i]);
     offset += file_header_.attr_length[i];
   }
+
   memcpy(key + offset, rid, sizeof(*rid));
 
   BplusTreeOperationType op = BplusTreeOperationType::DELETE;

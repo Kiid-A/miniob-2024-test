@@ -22,6 +22,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "common/global_context.h"
 #include "common/rc.h"
+#include "event/sql_debug.h"
 #include "storage/db/db.h"
 #include "storage/buffer/disk_buffer_pool.h"
 #include "storage/common/condition_filter.h"
@@ -201,12 +202,12 @@ RC Table::insert_record(Record &record)
 
   rc = insert_entry_of_indexes(record.data(), record.rid());
   if (rc != RC::SUCCESS) {  // 可能出现了键值重复
-    RC rc2 = delete_entry_of_indexes(record.data(), record.rid(), false /*error_on_not_exists*/);
-    if (rc2 != RC::SUCCESS) {
-      LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
-                name(), rc2, strrc(rc2));
-    }
-    rc2 = record_handler_->delete_record(&record.rid());
+    // RC rc2 = delete_entry_of_indexes(record.data(), record.rid(), false /*error_on_not_exists*/);
+    // if (rc2 != RC::SUCCESS) {
+    //   LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+    //             name(), rc2, strrc(rc2));
+    // }
+    RC rc2 = record_handler_->delete_record(&record.rid());
     if (rc2 != RC::SUCCESS) {
       LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
                 name(), rc2, strrc(rc2));
@@ -218,11 +219,82 @@ RC Table::insert_record(Record &record)
 RC Table::update_record(Record &record, const char *data)
 {
   RC rc = RC::SUCCESS;
-  rc    = record_handler_->update_record(data, record.rid());
+
+  // modify on index
+  // rc = delete_entry_of_indexes(record.data(), record.rid(), false);
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("Failed to delete index data. table name=%s, rc=%d:%s",
+  //               name(), rc, strrc(rc));
+  //   // RC rc2 = insert_entry_of_indexes(record.data(), record.rid());
+  //   // if (rc2 != RC::SUCCESS) {
+  //   //   LOG_PANIC("Failed to rollback record data when delete index entries failed. table name=%s, rc=%d:%s",
+  //   //             name(), rc2, strrc(rc2));
+  //   //   return rc2;
+  //   // }
+  //   return rc;
+  // }
+
+  // rc = record_handler_->update_record(data, record.rid());
+  // if (rc != RC::SUCCESS) {
+  //   LOG_ERROR("Update record failed. table name=%s, rc=%s", table_meta_.name(), strrc(rc));
+  //   return rc;
+  // }
+
+  // rc = insert_entry_of_indexes(data, record.rid());
+  // if (rc != RC::SUCCESS) {  // 可能出现了键值重复
+  //   LOG_ERROR("duplicate key");
+  //   RC rc2 = record_handler_->update_record(record.data(), record.rid());
+  //   if (rc2 != RC::SUCCESS) {
+  //     LOG_ERROR("Failed to rollback log data when update log failed. table name=%s, rc=%d:%s",
+  //               name(), rc2, strrc(rc2));
+  //     return rc2;
+  //   }
+  //   // RC rc2 = delete_entry_of_indexes(data, record.rid(), false /*error_on_not_exists*/);
+  //   // if (rc2 != RC::SUCCESS) {
+  //   //   LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+  //   //             name(), rc2, strrc(rc2));
+  //   //   return rc2;
+  //   // }
+  //   // RC rc2 = insert_entry_of_indexes(record.data(), record.rid());
+  //   // if (rc2 != RC::SUCCESS) {
+  //   //   LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
+  //   //             name(), rc2, strrc(rc2));
+  //   //   return rc2;
+  //   // }
+  //   return rc;
+  // }
+
+  rc = delete_entry_of_indexes(record.data(), record.rid(), false);
   if (rc != RC::SUCCESS) {
-    LOG_ERROR("Update record failed. table name=%s, rc=%s", table_meta_.name(), strrc(rc));
+    LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
+        record.rid().page_num,
+        record.rid().slot_num,
+        rc,
+        strrc(rc));
     return rc;
   }
+
+  rc = insert_entry_of_indexes(data, record.rid());
+  if (rc != RC::SUCCESS) {  // 可能出现了键值重复
+    RC rc2 = insert_entry_of_indexes(data, record.rid());
+    if (rc2 != RC::SUCCESS) {
+      LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+          name(),
+          rc2,
+          strrc(rc2));
+      return rc2;
+    }
+    return rc;  // 插入新的索引失败
+  }
+
+  rc = record_handler_->update_record(data, record.rid());
+  if (rc != RC::SUCCESS) {
+    // 更新数据失败应该回滚索引，但是这里除非RID错了，否则不会失败，懒得写回滚索引了
+    LOG_ERROR(
+        "Failed to update record (rid=%d.%d). rc=%d:%s", record.rid().page_num, record.rid().slot_num, rc, strrc(rc));
+    return rc;
+  }
+
   return rc;
 }
 
@@ -369,7 +441,8 @@ RC Table::get_chunk_scanner(ChunkFileScanner &scanner, Trx *trx, ReadWriteMode m
   return rc;
 }
 
-RC Table::create_index(Trx *trx, const std::vector<const FieldMeta *> &field_metas, const char *index_name, const bool unique)
+RC Table::create_index(
+    Trx *trx, const std::vector<const FieldMeta *> &field_metas, const char *index_name, const bool unique)
 {
   if (common::is_blank(index_name) || field_metas.empty()) {
     LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());

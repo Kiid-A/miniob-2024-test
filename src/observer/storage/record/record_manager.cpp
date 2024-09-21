@@ -364,7 +364,7 @@ RC RowRecordPageHandler::update_record(const RID &rid, const char *data)
 
   Bitmap bitmap(bitmap_, page_header_->record_capacity);
   if (bitmap.get_bit(rid.slot_num)) {
-    frame_->mark_dirty();
+    
 
     char *record_data = get_record_data(rid.slot_num);
     if (record_data == data) {
@@ -373,14 +373,15 @@ RC RowRecordPageHandler::update_record(const RID &rid, const char *data)
       // printf("record data:%s data:%s\n",record_data, data);
       memcpy(record_data, data, page_header_->record_real_size);
     }
-
+  
     RC rc = log_handler_.update_record(frame_, rid, data);
     if (OB_FAIL(rc)) {
       LOG_ERROR("Failed to update record. page_num %d:%d. rc=%s", 
                 disk_buffer_pool_->file_desc(), frame_->page_num(), strrc(rc));
       // return rc; // ignore errors
     }
-
+    bitmap.set_bit(rid.slot_num);
+    frame_->mark_dirty();
     return RC::SUCCESS;
   } else {
     LOG_DEBUG("Invalid slot_num %d, slot is empty, page_num %d.", rid.slot_num, frame_->page_num());
@@ -686,8 +687,6 @@ RC RecordFileHandler::update_record(const char *data, RID &rid)
   
   record_page_handler->cleanup();
   if (OB_SUCC(rc)) {
-    // 因为这里已经释放了页面锁，并发时，其它线程可能又把该页面填满了，那就不应该再放入 free_pages_
-    // 中。但是这里可以不关心，因为在查找空闲页面时，会自动过滤掉已经满的页面
     lock_.lock();
     free_pages_.insert(rid.page_num);
     LOG_TRACE("add free page %d to free page list", rid.page_num);

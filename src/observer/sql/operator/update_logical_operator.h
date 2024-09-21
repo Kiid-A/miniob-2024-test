@@ -9,17 +9,17 @@
 class UpdateLogicalOperator : public LogicalOperator
 {
 public:
-  UpdateLogicalOperator(Table *table, Value &value, const char *field_name);
+  UpdateLogicalOperator(Table *table, std::vector<Value> values, std::vector<Field> fields);
   virtual ~UpdateLogicalOperator() = default;
 
   LogicalOperatorType type() const override { return LogicalOperatorType::UPDATE; }
   Table              *table() const { return table_; }
-  Value              *value() { return &value_; }
+  std::vector<Value>  values() { return values_; }
 
-  const char *field_name() const { return field_name_; }
+  std::vector<Field> fields() const { return fields_; }
 
 private:
-  Table *table_ = nullptr;
-  Value  value_;
-  char  *field_name_ = nullptr;
+  Table             *table_ = nullptr;
+  std::vector<Value> values_;
+  std::vector<Field> fields_;
 };

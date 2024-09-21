@@ -174,7 +174,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
       if (*last_oper) {
         predicate_oper->add_child(std::move(*last_oper));
       }
-    
+
       last_oper = &predicate_oper;
     }
   }
@@ -303,7 +303,7 @@ RC LogicalPlanGenerator::create_plan(DeleteStmt *delete_stmt, unique_ptr<Logical
   unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, ReadWriteMode::READ_WRITE));
 
   unique_ptr<LogicalOperator> predicate_oper;
-  RC rc = create_plan(filter_stmt, predicate_oper);
+  RC                          rc = create_plan(filter_stmt, predicate_oper);
   if (rc != RC::SUCCESS) {
     return rc;
   }
@@ -312,7 +312,7 @@ RC LogicalPlanGenerator::create_plan(DeleteStmt *delete_stmt, unique_ptr<Logical
 
   if (predicate_oper) {
     static_cast<TableGetLogicalOperator *>(table_get_oper.get())
-            ->set_predicates(std::move(predicate_oper->expressions()));
+        ->set_predicates(std::move(predicate_oper->expressions()));
     // predicate_oper->add_child(std::move(table_get_oper));
     delete_oper->add_child(std::move(table_get_oper));
   } else {
@@ -325,33 +325,39 @@ RC LogicalPlanGenerator::create_plan(DeleteStmt *delete_stmt, unique_ptr<Logical
 
 RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
-  Table             *table       = update_stmt->table();
-  FilterStmt        *filter_stmt = update_stmt->filter_stmt();
-  std::vector<Field> fields;
-  for (int i = table->table_meta().sys_field_num(); i < table->table_meta().field_num(); i++) {
-    const FieldMeta *field_meta = table->table_meta().field(i);
-    fields.push_back(Field(table, field_meta));
-  }
-  // 创建一个名为 table_get_oper 的逻辑操作符，用于表示从表中检索数据。
+  Table                      *table       = update_stmt->table();
+  FilterStmt                 *filter_stmt = update_stmt->filter_stmt();
+  std::vector<Field>          fields      = update_stmt->fields();
   unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, ReadWriteMode::READ_WRITE));
-  // 生成与 filter_stmt 相关的逻辑操作符。这个操作用于表示查询过滤条件。
   unique_ptr<LogicalOperator> predicate_oper;
-  RC                          rc = create_plan(filter_stmt, predicate_oper);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
-  // 创建一个名为 update_oper 的逻辑操作符，用于表示更新操作。
-  unique_ptr<LogicalOperator> update_oper(
-      new UpdateLogicalOperator(table, *update_stmt->values(), update_stmt->attribute_name().c_str()));
-  if (predicate_oper) {
+  RC rc = RC::SUCCESS;
 
-    // 如果存在查询过滤条件
+  if (filter_stmt != nullptr) {
+    RC rc = create_plan(filter_stmt, predicate_oper);
+    if (OB_FAIL(rc)) {
+      LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
+      return rc;
+    }
+  }
+
+  unique_ptr<LogicalOperator> update_oper(
+      new UpdateLogicalOperator(table, update_stmt->values(), update_stmt->fields()));
+
+  // if (predicate_oper) {
+  //   static_cast<TableGetLogicalOperator *>(table_get_oper.get())
+  //       ->set_predicates(std::move(predicate_oper->expressions()));
+  //   update_oper->add_child(std::move(table_get_oper));
+  // } else {
+  //   update_oper->add_child(std::move(table_get_oper));
+  // }
+
+  if (predicate_oper) {
     predicate_oper->add_child(std::move(table_get_oper));
     update_oper->add_child(std::move(predicate_oper));
   } else {
-    // 不存在过滤条件
     update_oper->add_child(std::move(table_get_oper));
   }
+
   logical_operator = std::move(update_oper);
   return rc;
 }

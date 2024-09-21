@@ -142,6 +142,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   std::vector<std::string> *                 relation_list;
   std::vector<std::pair<std::string, std::vector<ConditionSqlNode>>> * 
                                              join_list;
+  std::vector<std::pair<std::string, Value>> *
+                                             eq_list;
   std::vector<std::string> *                 id_list;
   char *                                     string;
   int                                        number;
@@ -172,6 +174,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <string>              storage_format
 %type <relation_list>       rel_list
 %type <join_list>           join_list
+%type <eq_list>             eq_list
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <expression_list>     group_by
@@ -501,18 +504,21 @@ delete_stmt:    /*  delete 语句的语法解析树*/
     }
     ;
 update_stmt:      /*  update 语句的语法解析树*/
-    UPDATE ID SET ID EQ value where 
+    UPDATE ID SET eq_list where 
     {
       $$ = new ParsedSqlNode(SCF_UPDATE);
       $$->update.relation_name = $2;
-      $$->update.attribute_name = $4;
-      $$->update.value = *$6;
-      if ($7 != nullptr) {
-        $$->update.conditions.swap(*$7);
-        delete $7;
+      for (auto pair : *$4) {
+        $$->update.attribute_names.push_back(pair.first) ;
+        $$->update.values.push_back(pair.second);
+      }
+
+      if ($5 != nullptr) {
+        $$->update.conditions.swap(*$5);
+        delete $5;
       }
       free($2);
-      free($4);
+      delete $4;
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
@@ -565,7 +571,7 @@ select_stmt:        /*  select 语句的语法解析树*/
         for (auto cond : *$6) {
           $$->selection.conditions.push_back(cond);
         }
-        delete $7;
+        // delete $7;
       }
       
       if ($7 != nullptr) {
@@ -693,7 +699,7 @@ join_list:
       $$ = new std::vector<std::pair<std::string, std::vector<ConditionSqlNode>>>();
       $$->push_back({std::string($3), *$5});
       free($3);
-      // free($5);
+      delete $5;
     }
     | INNER JOIN relation ON condition_list join_list {
       if ($6 != nullptr) {
@@ -704,8 +710,28 @@ join_list:
 
       $$->insert($$->begin(), {std::string($3), *$5});
       free($3);
-      // free($5);
+      delete $5;
     }
+    ;
+eq_list:
+    ID EQ value {
+      $$ = new std::vector<std::pair<std::string, Value>>();
+      $$->push_back({std::string($1), *$3});
+      free($1);
+      delete $3;
+    }
+    | ID EQ value COMMA eq_list {
+      if ($5 != nullptr) {
+        $$ = $5;
+      } else {
+        $$ = new std::vector<std::pair<std::string, Value>>();
+      }
+
+      $$->insert($$->begin(), {std::string($1), *$3});
+      free($1);
+      delete $3;
+    }
+    ;
 
 where:
     /* empty */

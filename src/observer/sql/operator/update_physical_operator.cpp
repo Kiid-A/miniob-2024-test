@@ -1,4 +1,5 @@
 #include "sql/operator/update_physical_operator.h"
+#include "common/rc.h"
 #include "sql/stmt/update_stmt.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
@@ -38,41 +39,48 @@ RC UpdatePhysicalOperator::next()
       return rc;
     }
 
-    RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
-    Record   &record    = row_tuple->record();
-    if (*field_name_ == 0) {
-      rc = RC::EMPTY;
-      return rc;
-    }
-    const FieldMeta *feildmeta = table_->table_meta().field(field_name_);
-    if (feildmeta == nullptr) {
-      rc = RC::EMPTY;
-      return rc;
-    }
+    RowTuple         *row_tuple = static_cast<RowTuple *>(tuple);
+    Record           &record    = row_tuple->record();
+    std::vector<char> updated_data(record.len());
+    memcpy(updated_data.data(), record.data(), record.len());
 
-    int offset = feildmeta->offset();
-    int len    = feildmeta->len();
+    for (size_t i = 0; i < fields_.size(); i++) {
+      auto field_meta = fields_[i].meta();
+      auto value      = values_[i];
+      if (field_meta == nullptr) {
+        rc = RC::EMPTY;
+        return rc;
+      }
 
-    char *updated_data = record.data();
-    // printf("value data:%s, value size:%d len:%d, offset:%d\n", value_.data(), value_.length(), len, offset);
-    if (value_.length() < len) {
-      // 临时缓冲区，初始化为0
-      char *buffer = new char[len];
-      memset(buffer, 0, len);  // 使用 0 填充
+      int offset = field_meta->offset();
+      int len    = field_meta->len();
 
-      // 将 value_ 的数据复制到 buffer 中
-      memcpy(buffer, value_.data(), value_.length());
-
-      // 将 buffer 的内容复制到记录的更新位置
-      memcpy(updated_data + offset, buffer, len);
-    } else {
-      // 如果 value 的长度足够，直接复制
-      memcpy(updated_data + offset, value_.data(), len);
+      memcpy(updated_data.data() + offset, value.data(), len);
     }
 
-    rc = trx_->update_record(table_, record, updated_data);
+    if (0 == memcmp(record.data(), updated_data.data(), table_->table_meta().record_size())) {
+      LOG_WARN("update old value equals new value, skip this record");
+      return RC::RECORD_DUPLICATE_KEY;
+    }
+
+    olds_.push_back({updated_data, record});
+
+    rc = trx_->update_record(table_, record, updated_data.data());
     if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to delete record: %s", strrc(rc));
+      LOG_WARN("failed to update record: %s", strrc(rc));
+      RC rc2 = RC::SUCCESS;
+      olds_.pop_back();
+
+      for (size_t i = 0; i < olds_.size(); i++) {
+        auto v      = olds_[i].first;
+        auto record = olds_[i].second;
+        Record new_record = record;
+        new_record.set_data_owner(v.data(), v.size());
+        if (RC::SUCCESS != (rc2 = table_->update_record(new_record, record.data()))) {
+          LOG_WARN("Failed to rollback record, rc=%s", strrc(rc2));
+          break;
+        }
+      }
       return rc;
     }
   }

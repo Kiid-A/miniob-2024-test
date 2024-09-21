@@ -40,7 +40,7 @@ string FrameId::to_string() const
 ////////////////////////////////////////////////////////////////////////////////
 intptr_t get_default_debug_xid()
 {
-#if 0
+#if 1
   ThreadData *thd = ThreadData::current();
   intptr_t xid = (thd == nullptr) ? 
                  // pthread_self的返回值类型是pthread_t，pthread_t在linux和mac上不同
@@ -48,6 +48,7 @@ intptr_t get_default_debug_xid()
                  // 就将pthread_self返回值转换两次
                  reinterpret_cast<intptr_t>(reinterpret_cast<void*>(pthread_self())) : 
                  reinterpret_cast<intptr_t>(thd);
+  return xid;
 #endif
   Session *session = Session::current_session();
   if (session == nullptr) {

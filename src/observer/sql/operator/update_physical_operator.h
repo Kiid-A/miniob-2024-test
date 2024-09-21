@@ -12,18 +12,10 @@ class DeleteStmt;
 class UpdatePhysicalOperator : public PhysicalOperator
 {
 public:
-  UpdatePhysicalOperator(Table *table, Value &value, const char *field_name) : table_(table), value_(value)
-  {
-    // 复制 field_name
-    field_name_ = new char[strlen(field_name) + 1];
-    strcpy(field_name_, field_name);
-  }
-
-  // 析构函数
-  ~UpdatePhysicalOperator()
-  {
-    delete[] field_name_;  // 释放 field_name 的内存
-  }
+  UpdatePhysicalOperator(Table *table, std::vector<Value> values, std::vector<Field> fields)
+      : table_(table), values_(values), fields_(fields)
+  {}
+  ~UpdatePhysicalOperator() = default;
 
   PhysicalOperatorType type() const override { return PhysicalOperatorType::UPDATE; }
 
@@ -34,8 +26,9 @@ public:
   Tuple *current_tuple() override { return nullptr; }
 
 private:
-  Table *table_ = nullptr;
-  Value  value_;
-  char  *field_name_ = nullptr;
-  Trx   *trx_        = nullptr;
+  Table                                 *table_ = nullptr;
+  std::vector<Value>                     values_;
+  std::vector<Field>                     fields_;
+  Trx                                   *trx_ = nullptr;
+  std::vector<std::pair<std::vector<char>, Record>> olds_;
 };

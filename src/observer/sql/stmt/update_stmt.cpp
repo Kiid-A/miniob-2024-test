@@ -21,21 +21,16 @@ See the Mulan PSL v2 for more details. */
 #include "storage/table/table.h"
 #include "deps/common/time/datetime.h"
 
-UpdateStmt::UpdateStmt(
-    Table *table, Value *values, int value_amount, FilterStmt *filter_stmt, const std::string &attribute_name)
-    : table_(table),
-      values_(values),
-      value_amount_(value_amount),
-      filter_stmt_(filter_stmt),
-      attribute_name_(attribute_name)
+UpdateStmt::UpdateStmt(Table *table, std::vector<Value> values, FilterStmt *filter_stmt, std::vector<Field> fields)
+    : table_(table), filter_stmt_(filter_stmt), values_(values), fields_(fields)
 {}
 
 RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
 {
 
   const char *table_name = update.relation_name.c_str();
-  if (nullptr == db || nullptr == table_name || update.attribute_name.empty()) {
-    LOG_WARN("invalid argument. db=%p, table_name=%p", db, table_name);
+  if (nullptr == db || nullptr == table_name || update.attribute_names.empty()) {
+    LOG_WARN("invalid argument. db=%p, table_name=%p\n", db, table_name);
     return RC::INVALID_ARGUMENT;
   }
 
@@ -55,45 +50,31 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
     LOG_WARN("failed to create filter statement. rc=%d:%s", rc, strrc(rc));
     return rc;
   }
-  Value           &value      = const_cast<Value &>(update.value);
-  const TableMeta &table_meta = table->table_meta();
 
-  // 检查插入的字段
-  const std::string attribute_name = update.attribute_name;
-  const int         sys_field_num  = table_meta.sys_field_num();
-  const int         field_num      = table_meta.field_num();
+  std::vector<Value>       values          = update.values;
+  std::vector<std::string> attribute_names = update.attribute_names;
+  std::vector<Field>       fields;
+  for (auto attr_name : attribute_names) {
+    const FieldMeta *field_meta;
+    field_meta = table->table_meta().field(attr_name.c_str());
+    if (field_meta == nullptr) {
+      LOG_WARN("field %s not exist in table %s", attr_name.c_str(), update.relation_name.c_str());
+      return RC::SCHEMA_FIELD_NOT_EXIST;
+    }
+    Field field = Field(table, field_meta);
+    fields.push_back(field);
+  }
 
-  for (int i = 0; i < field_num; i++) {
-    const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
-    // 找到要更新的字段
-    if (field_meta->name() == attribute_name) {
-      const AttrType field_type = field_meta->type();
-      const AttrType value_type = value.attr_type();
-      if (field_type != value_type) {
-        if (field_type == AttrType::DATES) {
-          int date = -1;
-          // 把 string 表示的 date 转化成 int
-          int ret = string_to_date(value.data(), date);
-          if (!ret) {
-            LOG_TRACE("transform to date fail,%d", value.data());
-            return RC::INVALID_ARGUMENT;
-          }
-          value.set_date(date);
-        } else if (value_type == AttrType::CHARS) {
-          value.set_value(value);
-        } else {
-          LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
-              table_name,
-              field_meta->name(),
-              field_type,
-              value_type);
-          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-        }
-      }
-      // 生成 stmt
-      stmt = new UpdateStmt(table, &value, 1, filter_stmt, attribute_name);
-      return RC::SUCCESS;
+  FilterStmt *filter = nullptr;
+  if (!update.conditions.empty()) {
+    rc = FilterStmt::create(db, table, &table_map, update.conditions.data(), update.conditions.size(), filter);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("fail to create filter stmt");
+      return rc;
     }
   }
-  return RC::INTERNAL;
+
+  stmt = new UpdateStmt(table, values, filter_stmt, fields);
+
+  return RC::SUCCESS;
 }

@@ -60,20 +60,17 @@ class AttrComparator
 public:
   void init(int attr_num, AttrType *type, int *length)
   {
+    int l = 0;
     for (int i = 0; i < attr_num; i++) {
       attr_type_.emplace_back(type[i]);
       attr_length_.emplace_back(length[i]);
+      l += length[i];
     }
+
+    length_ = l;
   }
 
-  int attr_length() const
-  {
-    int sum_len = 0;
-    for (size_t i = 0; i < attr_length_.size(); i++) {
-      sum_len += attr_length_[i];
-    }
-    return sum_len;
-  }
+  int attr_length() const { return length_; }
 
   int operator()(const char *v1, const char *v2) const
   {
@@ -102,6 +99,7 @@ public:
 private:
   std::vector<AttrType> attr_type_;
   std::vector<int>      attr_length_;
+  int                   length_;
 };
 
 /**
@@ -121,16 +119,19 @@ public:
 
   const AttrComparator &attr_comparator() const { return attr_comparator_; }
 
+  // unique index should be compared as a whole
   int operator()(const char *v1, const char *v2) const
   {
     int result = attr_comparator_(v1, v2);
     if (result != 0) {
       return result;
-    } else if (!unique_) {
+    }
+    if (!unique_) {
       const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());
       const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
       return RID::compare(rid1, rid2);
     }
+
     return result;
   }
 
@@ -513,8 +514,8 @@ public:
    */
   RC create(const bool unique, LogHandler &log_handler, BufferPoolManager &bpm, const char *file_name,
       const std::vector<const FieldMeta *> &field_metas, int internal_max_size = -1, int leaf_max_size = -1);
-  RC create(const bool unique, LogHandler &log_handler, DiskBufferPool &buffer_pool, const std::vector<const FieldMeta *> &field_metas,
-      int internal_max_size = -1, int leaf_max_size = -1);
+  RC create(const bool unique, LogHandler &log_handler, DiskBufferPool &buffer_pool,
+      const std::vector<const FieldMeta *> &field_metas, int internal_max_size = -1, int leaf_max_size = -1);
 
   /**
    * @brief 打开一个B+树
