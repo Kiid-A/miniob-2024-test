@@ -168,18 +168,22 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
       }
 
       const Field &field = field_expr->field();
-      index              = table->find_index_by_field(field.field_name());
-      if (nullptr == index) {
-        break;
-      }
+      Value value;
+      ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
+      if (value_expr->try_get_value(value) != RC::SUCCESS)
+        continue;
+      field_values.push_back({field, value});
     }
   }
 
-  // std::vector<const char *> fields;
-  // for (auto &[f, value] : field_values) {
-  //   fields.push_back(f.field_name());
-  // }
-  // index = table->find_index_by_fields(fields);
+  std::vector<const char *> fields;
+  for (auto &[f, value] : field_values) {
+    fields.push_back(f.field_name());
+  }
+  
+  LOG_INFO("field size:%d", fields.size());
+  
+  index = table->find_index_by_fields(fields);
 
   if (index != nullptr) {
     ASSERT(value_expr != nullptr, "got an index but value expr is null ?");

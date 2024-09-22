@@ -40,7 +40,7 @@ public:
   RC close() override;
 
   Tuple *current_tuple() override;
-  RC     make_data(const std::vector<Value> &values, std::vector<FieldMeta> &meta, Table *table, char *out);
+  RC make_data(const std::vector<Value> &values, std::vector<FieldMeta> &meta, Table *table, std::vector<char> &out);
 
   void set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs);
 
@@ -59,10 +59,12 @@ private:
   Record   current_record_;
   RowTuple tuple_;
 
-  Value left_value_;
-  Value right_value_;
-  bool  left_inclusive_  = false;
-  bool  right_inclusive_ = false;
+  std::vector<char> left_value_;
+  std::vector<char> right_value_;
+  int               left_len_;
+  int               right_len_;
+  bool              left_inclusive_  = false;
+  bool              right_inclusive_ = false;
 
   std::vector<std::unique_ptr<Expression>> predicates_;
 };

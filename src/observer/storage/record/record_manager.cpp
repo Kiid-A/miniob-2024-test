@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/record_manager.h"
 #include "common/lang/defer.h"
 #include "common/log/log.h"
+#include "common/types.h"
 #include "storage/common/condition_filter.h"
 #include "storage/trx/trx.h"
 #include "storage/clog/log_handler.h"
@@ -655,7 +656,6 @@ RC RecordFileHandler::delete_record(const RID *rid)
 RC RecordFileHandler::get_record(const RID &rid, Record &record)
 {
   unique_ptr<RecordPageHandler> page_handler(RecordPageHandler::create(storage_format_));
-  DEFER(page_handler->cleanup(););
   
   RC rc = page_handler->init(*disk_buffer_pool_, *log_handler_, rid.page_num, ReadWriteMode::READ_WRITE);
   if (OB_FAIL(rc)) {
