@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi & Longda on 2021/4/13.
 //
 #include "storage/record/record_manager.h"
+#include "common/lang/defer.h"
 #include "common/log/log.h"
 #include "storage/common/condition_filter.h"
 #include "storage/trx/trx.h"
@@ -364,7 +365,6 @@ RC RowRecordPageHandler::update_record(const RID &rid, const char *data)
 
   Bitmap bitmap(bitmap_, page_header_->record_capacity);
   if (bitmap.get_bit(rid.slot_num)) {
-    
 
     char *record_data = get_record_data(rid.slot_num);
     if (record_data == data) {
@@ -373,7 +373,7 @@ RC RowRecordPageHandler::update_record(const RID &rid, const char *data)
       // printf("record data:%s data:%s\n",record_data, data);
       memcpy(record_data, data, page_header_->record_real_size);
     }
-  
+
     RC rc = log_handler_.update_record(frame_, rid, data);
     if (OB_FAIL(rc)) {
       LOG_ERROR("Failed to update record. page_num %d:%d. rc=%s", 
@@ -655,7 +655,8 @@ RC RecordFileHandler::delete_record(const RID *rid)
 RC RecordFileHandler::get_record(const RID &rid, Record &record)
 {
   unique_ptr<RecordPageHandler> page_handler(RecordPageHandler::create(storage_format_));
-
+  DEFER(page_handler->cleanup(););
+  
   RC rc = page_handler->init(*disk_buffer_pool_, *log_handler_, rid.page_num, ReadWriteMode::READ_WRITE);
   if (OB_FAIL(rc)) {
     LOG_ERROR("Failed to init record page handler.page number=%d", rid.page_num);
@@ -682,9 +683,9 @@ RC RecordFileHandler::update_record(const char *data, RID &rid)
     LOG_ERROR("Failed to init record page handler.page number=%d", rid.page_num);
     return rc;
   }
-  
+
   rc = record_page_handler->update_record(rid, data);
-  
+
   record_page_handler->cleanup();
   if (OB_SUCC(rc)) {
     lock_.lock();

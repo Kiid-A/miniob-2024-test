@@ -1211,7 +1211,6 @@ RC BplusTreeHandler::find_leaf_internal(BplusTreeMiniTransaction &mtr, BplusTree
     const function<PageNum(InternalIndexNodeHandler &)> &child_page_getter, Frame *&frame)
 {
   LatchMemo &latch_memo = mtr.latch_memo();
-
   // root locked
   if (op != BplusTreeOperationType::READ) {
     latch_memo.xlatch(&root_lock_);

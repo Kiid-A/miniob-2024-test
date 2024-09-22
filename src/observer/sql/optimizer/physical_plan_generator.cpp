@@ -130,15 +130,16 @@ RC PhysicalPlanGenerator::create_vec(LogicalOperator &logical_operator, unique_p
 RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, unique_ptr<PhysicalOperator> &oper)
 {
   vector<unique_ptr<Expression>> &predicates = table_get_oper.predicates();
-  // 看看是否有可以用于索引查找的表达式
-  Table *table = table_get_oper.table();
-  Index *index = nullptr;
 
+  // 看看是否有可以用于索引查找的表达式
+  Table                               *table      = table_get_oper.table();
+  Index                               *index      = nullptr;
+  ValueExpr                           *value_expr = nullptr;
   std::vector<std::pair<Field, Value>> field_values;
   for (auto &expr : predicates) {
     if (expr->type() == ExprType::COMPARISON) {
-      ValueExpr *value_expr      = nullptr;
-      auto       comparison_expr = static_cast<ComparisonExpr *>(expr.get());
+
+      auto comparison_expr = static_cast<ComparisonExpr *>(expr.get());
       // 简单处理，就找等值查询
       if (comparison_expr->comp() != EQUAL_TO) {
         continue;
@@ -167,21 +168,21 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
       }
 
       const Field &field = field_expr->field();
-      Value        value;
-      ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
-      if (value_expr->try_get_value(value) != RC::SUCCESS)
-        continue;
-      field_values.push_back({field, value});
+      index              = table->find_index_by_field(field.field_name());
+      if (nullptr == index) {
+        break;
+      }
     }
   }
 
-  std::vector<const char *> fields;
-  for (auto &[f, value] : field_values) {
-    fields.push_back(f.field_name());
-  }
-  index = table->find_index_by_fields(fields);
+  // std::vector<const char *> fields;
+  // for (auto &[f, value] : field_values) {
+  //   fields.push_back(f.field_name());
+  // }
+  // index = table->find_index_by_fields(fields);
 
   if (index != nullptr) {
+    ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
     std::vector<Value> values;
     const IndexMeta   &index_meta = index->index_meta();
     for (auto &field : index_meta.fields()) {
@@ -272,7 +273,7 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper, uniq
 RC PhysicalPlanGenerator::create_plan(InsertLogicalOperator &insert_oper, unique_ptr<PhysicalOperator> &oper)
 {
   Table                  *table           = insert_oper.table();
-  vector<Value>          &values          = insert_oper.values();
+  vector<vector<Value>>  &values          = insert_oper.values();
   InsertPhysicalOperator *insert_phy_oper = new InsertPhysicalOperator(table, std::move(values));
   oper.reset(insert_phy_oper);
   return RC::SUCCESS;

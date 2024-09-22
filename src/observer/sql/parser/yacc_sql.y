@@ -137,6 +137,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   Expression *                               expression;
   std::vector<std::unique_ptr<Expression>> * expression_list;
   std::vector<Value> *                       value_list;
+  std::vector<std::vector<Value>> *          insert_list;
   std::vector<ConditionSqlNode> *            condition_list;
   std::vector<RelAttrSqlNode> *              rel_attr_list;
   std::vector<std::string> *                 relation_list;
@@ -169,6 +170,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <value_list>          value_list
+%type <insert_list>         insert_list
 %type <condition_list>      where
 %type <condition_list>      condition_list
 %type <string>              storage_format
@@ -320,7 +322,6 @@ create_index_stmt:    /*create index 语句的语法解析树*/
       create_index.attribute_names.swap(*$7);
       free($3);
       free($5);
-    //   free($7);
     }
     | CREATE UNIQUE INDEX ID ON ID LBRACE id_list RBRACE
     {
@@ -414,34 +415,52 @@ type:
     | DATE_T   { $$ = static_cast<int>(AttrType::DATES); }
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
-    INSERT INTO ID VALUES LBRACE value value_list RBRACE 
+    INSERT INTO ID VALUES insert_list
     {
       $$ = new ParsedSqlNode(SCF_INSERT);
       $$->insertion.relation_name = $3;
-      if ($7 != nullptr) {
-        $$->insertion.values.swap(*$7);
-        delete $7;
-      }
-      $$->insertion.values.emplace_back(*$6);
-      std::reverse($$->insertion.values.begin(), $$->insertion.values.end());
-      delete $6;
+      $$->insertion.values.swap(*$5);
+      delete $5;
       free($3);
     }
     ;
-
-value_list:
-    /* empty */
+insert_list:
+    LBRACE value_list RBRACE 
     {
-      $$ = nullptr;
+      $$ = new std::vector<std::vector<Value>>();
+      $$->push_back(*$2);
+      delete $2;
     }
-    | COMMA value value_list  { 
+    | LBRACE value_list RBRACE COMMA insert_list
+    {
+      $$ = new std::vector<std::vector<Value>>();
+      if ($5 != nullptr) {
+        for (auto vec : *$5) {
+          $$->push_back(vec);
+        }
+      }
+
+      $$->insert($$->begin(), *$2);
+      delete $5;
+      delete $2;
+    }
+    ;
+value_list:
+    value
+    {
+      $$ = new std::vector<Value>();
+      $$->push_back(*$1);
+      delete $1;
+    }
+    | value COMMA value_list  
+    { 
+      $$ = new std::vector<Value>();
       if ($3 != nullptr) {
         $$ = $3;
-      } else {
-        $$ = new std::vector<Value>;
-      }
-      $$->emplace_back(*$2);
-      delete $2;
+      } 
+      $$->insert($$->begin(), *$1);
+
+      delete $1;
     }
     ;
 value:
