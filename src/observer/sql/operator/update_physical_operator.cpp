@@ -71,7 +71,7 @@ RC UpdatePhysicalOperator::next()
       RC rc2 = RC::SUCCESS;
       olds_.pop_back();
 
-      for (size_t i = 0; i < olds_.size(); i++) {
+      for (int i = olds_.size() - 1; i >= 0; i++) {
         auto v      = olds_[i].first;
         auto record = olds_[i].second;
         Record new_record = record;
@@ -81,6 +81,7 @@ RC UpdatePhysicalOperator::next()
           break;
         }
       }
+      close();
       return rc;
     }
   }
