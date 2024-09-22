@@ -40,7 +40,7 @@ string FrameId::to_string() const
 ////////////////////////////////////////////////////////////////////////////////
 intptr_t get_default_debug_xid()
 {
-#if 1
+#if 0
   ThreadData *thd = ThreadData::current();
   intptr_t xid = (thd == nullptr) ? 
                  // pthread_self的返回值类型是pthread_t，pthread_t在linux和mac上不同
