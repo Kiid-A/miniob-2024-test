@@ -1,8 +1,10 @@
 #include "sql/operator/update_physical_operator.h"
 #include "common/rc.h"
+#include "common/type/attr_type.h"
 #include "sql/stmt/update_stmt.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
+#include "common/lang/defer.h"
 
 using namespace std;
 
@@ -26,6 +28,7 @@ RC UpdatePhysicalOperator::open(Trx *trx)
 
 RC UpdatePhysicalOperator::next()
 {
+  DEFER(close());
   RC rc = RC::SUCCESS;
   if (children_.empty()) {
     return RC::RECORD_EOF;
@@ -41,8 +44,8 @@ RC UpdatePhysicalOperator::next()
 
     RowTuple         *row_tuple = static_cast<RowTuple *>(tuple);
     Record           &record    = row_tuple->record();
-    std::vector<char> updated_data(record.len());
-    memcpy(updated_data.data(), record.data(), record.len());
+    std::vector<char> updated_data(table_->table_meta().record_size());
+    memcpy(updated_data.data(), record.data(), updated_data.size());
 
     for (size_t i = 0; i < fields_.size(); i++) {
       auto field_meta = fields_[i].meta();
@@ -54,8 +57,21 @@ RC UpdatePhysicalOperator::next()
 
       int offset = field_meta->offset();
       int len    = field_meta->len();
+      if (value.length() > len) {
+        LOG_WARN("update value over size");
+        return RC::INVALID_ARGUMENT;
+      }
 
-      memcpy(updated_data.data() + offset, value.data(), len);
+      if (field_meta->type() != AttrType::CHARS) {
+        memcpy(updated_data.data() + offset, value.data(), len);
+      } else {
+        if (value.length() > len) {
+          return RC::INVALID_ARGUMENT;
+        }
+        /* actually,value may not have such a long length */
+        memcpy(updated_data.data() + offset, value.data(), value.length());
+        memset(updated_data.data() + offset + value.length(), 0, len - value.length());
+      }
     }
 
     if (0 == memcmp(record.data(), updated_data.data(), table_->table_meta().record_size())) {
@@ -72,8 +88,8 @@ RC UpdatePhysicalOperator::next()
       olds_.pop_back();
 
       for (int i = olds_.size() - 1; i >= 0; i++) {
-        auto v      = olds_[i].first;
-        auto record = olds_[i].second;
+        auto   v          = olds_[i].first;
+        auto   record     = olds_[i].second;
         Record new_record = record;
         new_record.set_data_owner(v.data(), v.size());
         if (RC::SUCCESS != (rc2 = table_->update_record(new_record, record.data()))) {

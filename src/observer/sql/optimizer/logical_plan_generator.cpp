@@ -348,20 +348,20 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
   unique_ptr<LogicalOperator> update_oper(
       new UpdateLogicalOperator(table, update_stmt->values(), update_stmt->fields()));
 
-  // if (predicate_oper) {
-  //   static_cast<TableGetLogicalOperator *>(table_get_oper.get())
-  //       ->set_predicates(std::move(predicate_oper->expressions()));
-  //   update_oper->add_child(std::move(table_get_oper));
-  // } else {
-  //   update_oper->add_child(std::move(table_get_oper));
-  // }
-
   if (predicate_oper) {
-    predicate_oper->add_child(std::move(table_get_oper));
-    update_oper->add_child(std::move(predicate_oper));
+    static_cast<TableGetLogicalOperator *>(table_get_oper.get())
+        ->set_predicates(std::move(predicate_oper->expressions()));
+    update_oper->add_child(std::move(table_get_oper));
   } else {
     update_oper->add_child(std::move(table_get_oper));
   }
+
+  // if (predicate_oper) {
+  //   predicate_oper->add_child(std::move(table_get_oper));
+  //   update_oper->add_child(std::move(predicate_oper));
+  // } else {
+  //   update_oper->add_child(std::move(table_get_oper));
+  // }
 
   logical_operator = std::move(update_oper);
   return rc;
