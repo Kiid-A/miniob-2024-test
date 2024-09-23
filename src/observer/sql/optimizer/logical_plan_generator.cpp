@@ -105,16 +105,22 @@ RC LogicalPlanGenerator::create_plan(CalcStmt *calc_stmt, std::unique_ptr<Logica
  */
 RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
-  unique_ptr<LogicalOperator> *last_oper = nullptr;
-
-  // outside operator
+  // outside operator. it shall push down ? according to next?
   unique_ptr<LogicalOperator> table_oper(nullptr);
-  last_oper = &table_oper;
 
   const std::vector<Table *> &tables = select_stmt->tables();
+
   for (Table *table : tables) {
     std::vector<Field>          fields;
     unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, ReadWriteMode::READ_ONLY));
+    // if (table_oper == nullptr) {
+    //   table_oper = std::move(table_get_oper);
+    // } else {
+    //   JoinLogicalOperator *join_oper = new JoinLogicalOperator;
+    //   join_oper->add_child(std::move(table_oper));
+    //   join_oper->add_child(std::move(table_get_oper));
+    //   table_oper = unique_ptr<LogicalOperator>(join_oper);
+    // }
     if (table_oper == nullptr) {
       table_oper = std::move(table_get_oper);
     } else {
@@ -127,7 +133,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
 
   const std::vector<Table *>      &join_tables = select_stmt->join_tables();
   const std::vector<FilterStmt *> &join_conds  = select_stmt->join_conds();
-  unique_ptr<LogicalOperator>      outside_oper(nullptr);
+  // std::unique_ptr<LogicalOperator> extern_join_oper;
   for (size_t i = 0; i < join_conds.size(); i++) {
     // TODO:we shall set predicate expression here!
     // find table first
@@ -162,24 +168,33 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
     }
   }
 
-  unique_ptr<LogicalOperator> predicate_oper;
-  if (select_stmt->filter_stmt() != nullptr) {
-    RC rc = create_plan(select_stmt->filter_stmt(), predicate_oper);
-    if (OB_FAIL(rc)) {
-      LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
-      return rc;
-    }
+  // if (table_oper) {
+  //   if (*last_oper) {
+  //     extern_join_oper->add_child(std::move(*last_oper));
+  //   }
+  //   last_oper = &extern_join_oper;
+  // }
 
-    if (predicate_oper) {
-      if (*last_oper) {
-        static_cast<TableGetLogicalOperator *>(last_oper->get())
-            ->set_predicates(std::move(predicate_oper->expressions()));
-        // predicate_oper->add_child(std::move(*last_oper));
+  unique_ptr<LogicalOperator> scan_oper = std::move(table_oper);
+  {
+    unique_ptr<LogicalOperator> predicate_oper;
+    if (select_stmt->filter_stmt() != nullptr) {
+      RC rc = create_plan(select_stmt->filter_stmt(), predicate_oper);
+      if (OB_FAIL(rc)) {
+        LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
+        return rc;
       }
-      
-      // last_oper = &predicate_oper;
     }
-  } 
+    if (predicate_oper) {
+      if (scan_oper) {
+        // static_cast<TableGetLogicalOperator *>(scan_oper.get())
+        //     ->set_predicates(std::move(predicate_oper->expressions()));
+        predicate_oper->add_child(std::move(scan_oper));
+      }
+
+      scan_oper = std::move(predicate_oper);
+    }
+  }
 
   RC                          rc = RC::SUCCESS;
   unique_ptr<LogicalOperator> group_by_oper;
@@ -190,19 +205,22 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
   }
 
   if (group_by_oper) {
-    if (*last_oper) {
-      group_by_oper->add_child(std::move(*last_oper));
+    if (scan_oper) {
+      group_by_oper->add_child(std::move(scan_oper));
     }
 
-    last_oper = &group_by_oper;
+    scan_oper = std::move(group_by_oper);
   }
 
-  auto project_oper = make_unique<ProjectLogicalOperator>(std::move(select_stmt->query_expressions()));
-  if (*last_oper) {
-    project_oper->add_child(std::move(*last_oper));
+  {
+    auto project_oper = make_unique<ProjectLogicalOperator>(std::move(select_stmt->query_expressions()));
+    if (scan_oper) {
+      project_oper->add_child(std::move(scan_oper));
+    }
+    scan_oper = std::move(project_oper);
   }
 
-  logical_operator = std::move(project_oper);
+  logical_operator.swap(scan_oper);
   return RC::SUCCESS;
 }
 
@@ -284,7 +302,7 @@ int LogicalPlanGenerator::implicit_cast_cost(AttrType from, AttrType to)
 
 RC LogicalPlanGenerator::create_plan(InsertStmt *insert_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
-  Table        *table = insert_stmt->table();
+  Table                *table = insert_stmt->table();
   vector<vector<Value>> values;
   for (int i = 0; i < insert_stmt->values().size(); ++i) {
     values.emplace_back(insert_stmt->values()[i]);
@@ -335,7 +353,7 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
   std::vector<Field>          fields      = update_stmt->fields();
   unique_ptr<LogicalOperator> table_get_oper(new TableGetLogicalOperator(table, fields, ReadWriteMode::READ_WRITE));
   unique_ptr<LogicalOperator> predicate_oper;
-  RC rc = RC::SUCCESS;
+  RC                          rc = RC::SUCCESS;
 
   if (filter_stmt != nullptr) {
     RC rc = create_plan(filter_stmt, predicate_oper);
@@ -348,21 +366,21 @@ RC LogicalPlanGenerator::create_plan(UpdateStmt *update_stmt, unique_ptr<Logical
   unique_ptr<LogicalOperator> update_oper(
       new UpdateLogicalOperator(table, update_stmt->values(), update_stmt->fields()));
 
-  if (predicate_oper) {
-    static_cast<TableGetLogicalOperator *>(table_get_oper.get())
-        ->set_predicates(std::move(predicate_oper->expressions()));
-    update_oper->add_child(std::move(table_get_oper));
-  } else {
-    update_oper->add_child(std::move(table_get_oper));
-  }
-
   // if (predicate_oper) {
-  //   predicate_oper->add_child(std::move(table_get_oper));
-  //   update_oper->add_child(std::move(predicate_oper));
+  //   static_cast<TableGetLogicalOperator *>(table_get_oper.get())
+  //       ->set_predicates(std::move(predicate_oper->expressions()));
+  //   update_oper->add_child(std::move(table_get_oper));
   // } else {
   //   update_oper->add_child(std::move(table_get_oper));
   // }
 
+  if (predicate_oper) {
+    predicate_oper->add_child(std::move(table_get_oper));
+    update_oper->add_child(std::move(predicate_oper));
+  } else {
+    update_oper->add_child(std::move(table_get_oper));
+  }
+  
   logical_operator = std::move(update_oper);
   return rc;
 }

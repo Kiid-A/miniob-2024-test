@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include <utility>
 
 #include "common/log/log.h"
+#include "common/rc.h"
 #include "sql/expr/expression.h"
 #include "sql/operator/aggregate_vec_physical_operator.h"
 #include "sql/operator/calc_logical_operator.h"
@@ -168,7 +169,7 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
       }
 
       const Field &field = field_expr->field();
-      Value value;
+      Value        value;
       ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
       if (value_expr->try_get_value(value) != RC::SUCCESS)
         continue;
@@ -180,10 +181,18 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
   for (auto &[f, value] : field_values) {
     fields.push_back(f.field_name());
   }
-  
+
   LOG_INFO("field size:%d", fields.size());
-  
-  index = table->find_index_by_fields(fields);
+  if (fields.size() == 1) {
+    index = table->find_index_by_field(fields[0]);
+  } else if (fields.size() > 1) {
+    index           = table->find_index_by_fields(fields);
+    auto field_meta = index->field_metas();
+    if (field_meta.size() == 0) {
+      LOG_WARN("WTF");
+      return RC::INVALID_ARGUMENT;
+    }
+  }
 
   if (index != nullptr) {
     ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
@@ -202,6 +211,7 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
         break;
       }
     }
+
     IndexScanPhysicalOperator *index_scan_oper = new IndexScanPhysicalOperator(table,
         index,
         table_get_oper.read_write_mode(),

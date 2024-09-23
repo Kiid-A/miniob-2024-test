@@ -64,7 +64,7 @@ void Frame::write_latch(intptr_t xid)
 {
   {
     scoped_lock debug_lock(debug_lock_);
-    LOG_INFO("frame write latch xid:%ld", xid);
+    // LOG_INFO("frame write latch xid:%ld", xid);
     ASSERT(pin_count_.load() > 0,
         "frame lock. write lock failed while pin count is invalid. "
         "this=%p, pin=%d, frameId=%s, xid=%lx, lbt=%s",
@@ -93,7 +93,7 @@ void Frame::write_unlatch(intptr_t xid)
 {
   // 因为当前已经加着写锁，而且写锁只有一个，所以不再加debug_lock来做校验
   debug_lock_.lock();
-  LOG_INFO("frame write unlatch xid:%ld", xid);
+  // LOG_INFO("frame write unlatch xid:%ld", xid);
   ASSERT(pin_count_.load() > 0,
       "frame lock. write unlock failed while pin count is invalid."
       "this=%p, pin=%d, frameId=%s, xid=%lx, lbt=%s",
@@ -121,7 +121,7 @@ void Frame::read_latch(intptr_t xid)
 {
   {
     scoped_lock debug_lock(debug_lock_);
-    LOG_INFO("frame read latch xid:%ld", xid);
+    // LOG_INFO("frame read latch xid:%ld", xid);
     ASSERT(pin_count_ > 0,
         "frame lock. read lock failed while pin count is invalid."
         "this=%p, pin=%d, frameId=%s, xid=%lx, lbt=%s",
@@ -183,7 +183,7 @@ void Frame::read_unlatch(intptr_t xid)
 {
   {
     scoped_lock debug_lock(debug_lock_);
-    LOG_INFO("frame read unlatch xid:%ld", xid);
+    // LOG_INFO("frame read unlatch xid:%ld", xid);
     ASSERT(pin_count_.load() > 0,
         "frame lock. read unlock failed while pin count is invalid."
         "this=%p, pin=%d, frameId=%s, xid=%lx, lbt=%s",

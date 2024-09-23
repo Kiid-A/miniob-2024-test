@@ -19,6 +19,7 @@ CREATE INDEX i_2_456 ON multi_index2(col4, col5, col6);
 -- sort SELECT * FROM multi_index2;
 
 -- echo 3. influence of inserting
+drop table multi_index3;
 CREATE TABLE multi_index3(id int, col1 int, col2 float, col3 char, col4 date, col5 int, col6 int);
 CREATE INDEX i_3_i1 ON multi_index3(id,col1);
 

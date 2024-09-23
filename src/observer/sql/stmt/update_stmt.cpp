@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/update_stmt.h"
 #include <string>
 #include "common/log/log.h"
+#include "common/rc.h"
 #include "common/type/attr_type.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/db/db.h"
@@ -63,6 +64,12 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
     }
     Field field = Field(table, field_meta);
     fields.push_back(field);
+  }
+
+  for (int i = 0; i < values.size(); i++) {
+    if (values[i].attr_type() != fields[i].attr_type()) {
+      return RC::INVALID_ARGUMENT;
+    }
   }
 
   FilterStmt *filter = nullptr;

@@ -41,10 +41,19 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
   std::vector<std::vector<Value>> values     = inserts.values;
   const int                       value_num  = static_cast<int>(inserts.values[0].size());
   const TableMeta                &table_meta = table->table_meta();
+  auto                            field_metas= table_meta.field_metas();
   const int                       field_num  = table_meta.field_num() - table_meta.sys_field_num();
   if (field_num != value_num) {
     LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
     return RC::SCHEMA_FIELD_MISSING;
+  }
+
+  for (int i = 0; i < values.size(); i++) {
+    for (int j = 0; j < values[0].size(); j++) {
+      if (values[i][j].attr_type() != (*field_metas)[j].type()) {
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+    }
   }
 
   // everything alright
