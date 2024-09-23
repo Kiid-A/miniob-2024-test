@@ -13,26 +13,30 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/operator/index_scan_physical_operator.h"
+#include "common/log/log.h"
+#include "common/rc.h"
 #include "common/type/attr_type.h"
 #include "storage/index/index.h"
 #include "storage/trx/trx.h"
+#include <cstring>
 
 RC IndexScanPhysicalOperator::make_data(
-    const std::vector<Value> &values, std::vector<FieldMeta> &meta, Table *table, std::vector<char> &out)
+    const std::vector<Value> &values, std::vector<FieldMeta> &meta, Table *table, Record &out)
 {
-  std::vector<char> ret;
-  int               size = 0;
-  for (auto &field : meta) {
-    size += field.len();
+  int offset = 0;
+  for (int i = 0; i < values.size(); i++) {
+    Value       &value      = const_cast<Value &>(values[i]);
+    FieldMeta   &field_meta = meta[i];
+    size_t       copy_len   = field_meta.len();
+    const size_t data_len   = value.length();
+    if (field_meta.type() == AttrType::CHARS) {
+      if (copy_len > data_len) {
+        copy_len = data_len + 1;
+      }
+    }
+    memcpy(out.data() + offset, value.data(), copy_len);
+    offset += field_meta.offset();
   }
-  ret.resize(size);
-  char *buf = ret.data();
-  for (int i = 0; i < values.size() && i < meta.size(); i++) {
-    Value value = values[i];
-    memcpy(buf, value.data(), meta[i].len());
-    buf += meta[i].len();
-  }
-  out.swap(ret);
   return RC::SUCCESS;
 }
 
@@ -48,24 +52,35 @@ IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index,
   for (auto &field : fields) {
     size += field.len();
   }
-  std::vector<char> ld(size);
-  rc = make_data(left_value, fields, table, ld);
+
+  Record lrecord;
+  Record rrecord;
+  rc = lrecord.new_record(size);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("Failed to make record");
+  }
+  rc = rrecord.new_record(size);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("Failed to make record");
+  }
+
+  rc = make_data(left_value, fields, table, lrecord); 
   if (rc != RC::SUCCESS) {
     LOG_WARN("fail to make data");
   }
   left_value_.resize(size);
-  left_value_.swap(ld);
+  memcpy(left_value_.data(), lrecord.data(), size);
 
-  std::vector<char> rd(size);
-  rc = make_data(right_value, fields, table, rd);
+  rc = make_data(right_value, fields, table, rrecord); 
   if (rc != RC::SUCCESS) {
     LOG_WARN("fail to make data");
   }
   right_value_.resize(size);
-  right_value_.swap(rd);
+  memcpy(right_value_.data(), lrecord.data(), size);
 
   left_len_  = size;
   right_len_ = size;
+  // LOG_INFO("left value:%s right value:%s", left_value_.data(), right_value_.data());
 }
 
 RC IndexScanPhysicalOperator::open(Trx *trx)
@@ -74,12 +89,8 @@ RC IndexScanPhysicalOperator::open(Trx *trx)
     return RC::INTERNAL;
   }
 
-  IndexScanner *index_scanner = index_->create_scanner(left_value_.data(),
-      left_len_,
-      left_inclusive_,
-      right_value_.data(),
-      right_len_,
-      right_inclusive_);
+  IndexScanner *index_scanner = index_->create_scanner(
+      left_value_.data(), left_len_, left_inclusive_, right_value_.data(), right_len_, right_inclusive_);
   if (nullptr == index_scanner) {
     LOG_WARN("failed to create index scanner");
     return RC::INTERNAL;

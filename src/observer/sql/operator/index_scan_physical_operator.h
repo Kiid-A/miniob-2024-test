@@ -40,7 +40,7 @@ public:
   RC close() override;
 
   Tuple *current_tuple() override;
-  RC make_data(const std::vector<Value> &values, std::vector<FieldMeta> &meta, Table *table, std::vector<char> &out);
+  RC make_data(const std::vector<Value> &values, std::vector<FieldMeta> &meta, Table *table, Record &out);
 
   void set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs);
 

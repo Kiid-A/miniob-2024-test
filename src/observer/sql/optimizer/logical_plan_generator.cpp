@@ -172,12 +172,14 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
 
     if (predicate_oper) {
       if (*last_oper) {
-        predicate_oper->add_child(std::move(*last_oper));
+        static_cast<TableGetLogicalOperator *>(last_oper->get())
+            ->set_predicates(std::move(predicate_oper->expressions()));
+        // predicate_oper->add_child(std::move(*last_oper));
       }
-
-      last_oper = &predicate_oper;
+      
+      // last_oper = &predicate_oper;
     }
-  }
+  } 
 
   RC                          rc = RC::SUCCESS;
   unique_ptr<LogicalOperator> group_by_oper;

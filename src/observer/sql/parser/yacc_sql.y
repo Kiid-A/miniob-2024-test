@@ -73,7 +73,6 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         TABLE
         TABLES
         INDEX
-        MULTI_INDEX
         CALC
         SELECT
         DESC
