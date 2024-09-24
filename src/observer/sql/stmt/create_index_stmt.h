@@ -30,7 +30,7 @@ class CreateIndexStmt : public Stmt
 {
 public:
   CreateIndexStmt(Table *table, std::vector<const FieldMeta *> field_metas, const std::string &index_name, bool unique)
-      : unique_(unique), table_(table), field_metas_(field_metas), index_name_(index_name)
+      : unique_(unique), table_(table), field_metas_(std::move(field_metas)), index_name_(index_name)
   {}
 
   virtual ~CreateIndexStmt() = default;

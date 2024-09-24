@@ -186,12 +186,7 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
   if (fields.size() == 1) {
     index = table->find_index_by_field(fields[0]);
   } else if (fields.size() > 1) {
-    index           = table->find_index_by_fields(fields);
-    auto field_meta = index->field_metas();
-    if (field_meta.size() == 0) {
-      LOG_WARN("WTF");
-      return RC::INVALID_ARGUMENT;
-    }
+    index = table->find_index_by_fields(fields);
   }
 
   if (index != nullptr) {
