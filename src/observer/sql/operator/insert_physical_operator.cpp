@@ -38,15 +38,15 @@ RC InsertPhysicalOperator::open(Trx *trx)
     rc = trx->insert_record(table_, rcd);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to insert record by transaction. rc=%s", strrc(rc));
-      RC rc2 = RC::SUCCESS;
-      for (int j = i - 1; j >= 0; j--) {
-        Record &done_rcd = records[j];
-        rc2              = trx->delete_record(table_, done_rcd);
-        if (RC::SUCCESS != rc2) {
-          LOG_WARN("failed to rollback record after insert failed. rc=%s", strrc(rc2));
-          break;
-        }
-      }
+      // RC rc2 = RC::SUCCESS;
+      // for (int j = i - 1; j >= 0; j--) {
+      //   Record &done_rcd = records[j];
+      //   rc2              = trx->delete_record(table_, done_rcd);
+      //   if (RC::SUCCESS != rc2) {
+      //     LOG_WARN("failed to rollback record after insert failed. rc=%s", strrc(rc2));
+      //     break;
+      //   }
+      // }
       break;
     }
   }

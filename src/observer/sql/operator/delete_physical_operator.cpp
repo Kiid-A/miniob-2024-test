@@ -42,20 +42,26 @@ RC DeletePhysicalOperator::open(Trx *trx)
 
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
     Record   &record    = row_tuple->record();
-    records_.emplace_back(std::move(record));
-  }
-
-  child->close();
-
-  // 先收集记录再删除
-  // 记录的有效性由事务来保证，如果事务不保证删除的有效性，那说明此事务类型不支持并发控制，比如VacuousTrx
-  for (Record &record : records_) {
+    // records_.emplace_back(std::move(record));
     rc = trx_->delete_record(table_, record);
     if (rc != RC::SUCCESS) {
       LOG_WARN("failed to delete record: %s", strrc(rc));
       return rc;
     }
   }
+
+  child->close();
+
+  // 先收集记录再删除
+  // 记录的有效性由事务来保证，如果事务不保证删除的有效性，那说明此事务类型不支持并发控制，比如VacuousTrx
+  // LOG_INFO("delete records size:%d", records_.size());
+  // for (Record &record : records_) {
+  //   rc = trx_->delete_record(table_, record);
+  //   if (rc != RC::SUCCESS) {
+  //     LOG_WARN("failed to delete record: %s", strrc(rc));
+  //     return rc;
+  //   }
+  // }
 
   return RC::SUCCESS;
 }

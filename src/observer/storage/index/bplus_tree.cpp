@@ -831,7 +831,7 @@ RC BplusTreeHandler::create(const bool unique, LogHandler &log_handler, BufferPo
 RC BplusTreeHandler::create(const bool unique, LogHandler &log_handler, DiskBufferPool &buffer_pool,
     const std::vector<const FieldMeta *> &field_metas, int internal_max_size /* = -1 */, int leaf_max_size /* = -1 */)
 {
-  unique_ = unique;
+  unique_         = unique;
   int attr_length = 0;
   for (auto field_meta : field_metas) {
     attr_length += field_meta->len();
@@ -1508,9 +1508,9 @@ MemPoolItem::item_unique_ptr BplusTreeHandler::make_key(const char *user_key, co
     LOG_WARN("Failed to alloc memory for key.");
     return nullptr;
   }
-  int offset = file_header_.attr_length[0];
-  memcpy(static_cast<char *>(key.get()), user_key, file_header_.attr_length[0]);
-  for (int i = 1; i < file_header_.attr_num; i++) {
+
+  int offset = 0;
+  for (int i = 0; i < file_header_.attr_num; i++) {
     memcpy(
         static_cast<char *>(key.get()) + offset, user_key + file_header_.attr_offset[i], file_header_.attr_length[i]);
     offset += file_header_.attr_length[i];

@@ -36,6 +36,7 @@ RC IndexMeta::init(const char *name, const std::vector<const FieldMeta *> &field
     fields_.push_back(field->name());
   }
 
+  field_metas_ = fields;
   unique_ = unique;
   return RC::SUCCESS;
 }

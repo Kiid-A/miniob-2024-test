@@ -106,6 +106,7 @@ RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
   // }
 
   // return rc;
+  LOG_INFO("insert entry:%d %d", rid->page_num, rid->slot_num);
   return index_handler_.insert_entry(record, rid);
 }
 
@@ -120,6 +121,7 @@ RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
   // }
 
   // return rc;
+  LOG_INFO("delete entry:%d %d", rid->page_num, rid->slot_num);
   return index_handler_.delete_entry(record, rid);
 }
 

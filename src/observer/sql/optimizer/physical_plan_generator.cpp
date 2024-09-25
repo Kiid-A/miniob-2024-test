@@ -133,14 +133,14 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
   vector<unique_ptr<Expression>> &predicates = table_get_oper.predicates();
 
   // 看看是否有可以用于索引查找的表达式
-  Table                               *table      = table_get_oper.table();
-  Index                               *index      = nullptr;
-  ValueExpr                           *value_expr = nullptr;
+  Table *table = table_get_oper.table();
+  Index *index = nullptr;
+
   std::vector<std::pair<Field, Value>> field_values;
   for (auto &expr : predicates) {
     if (expr->type() == ExprType::COMPARISON) {
-
-      auto comparison_expr = static_cast<ComparisonExpr *>(expr.get());
+      ValueExpr *value_expr      = nullptr;
+      auto       comparison_expr = static_cast<ComparisonExpr *>(expr.get());
       // 简单处理，就找等值查询
       if (comparison_expr->comp() != EQUAL_TO) {
         continue;
@@ -171,8 +171,10 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
       const Field &field = field_expr->field();
       Value        value;
       ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
-      if (value_expr->try_get_value(value) != RC::SUCCESS)
+      if (value_expr->try_get_value(value) != RC::SUCCESS) {
         continue;
+      }
+
       field_values.push_back({field, value});
     }
   }
@@ -182,15 +184,12 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
     fields.push_back(f.field_name());
   }
 
-  LOG_INFO("field size:%d", fields.size());
-  if (fields.size() == 1) {
-    index = table->find_index_by_field(fields[0]);
-  } else if (fields.size() > 1) {
-    index = table->find_index_by_fields(fields);
-  }
+  // LOG_INFO("field size:%d", fields.size());
+
+  index = table->find_index_by_fields(fields);
 
   if (index != nullptr) {
-    ASSERT(value_expr != nullptr, "got an index but value expr is null ?");
+    LOG_INFO("index name:%s", index->index_meta().name());
     std::vector<Value> values;
     const IndexMeta   &index_meta = index->index_meta();
     for (auto &field : index_meta.fields()) {
@@ -291,7 +290,7 @@ RC PhysicalPlanGenerator::create_plan(InsertLogicalOperator &insert_oper, unique
 RC PhysicalPlanGenerator::create_plan(DeleteLogicalOperator &delete_oper, unique_ptr<PhysicalOperator> &oper)
 {
   vector<unique_ptr<LogicalOperator>> &child_opers = delete_oper.children();
-
+  LOG_INFO("delete operator children size:%d", child_opers.size());
   unique_ptr<PhysicalOperator> child_physical_oper;
 
   RC rc = RC::SUCCESS;

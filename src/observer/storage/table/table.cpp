@@ -202,12 +202,13 @@ RC Table::insert_record(Record &record)
 
   rc = insert_entry_of_indexes(record.data(), record.rid());
   if (rc != RC::SUCCESS) {  // 可能出现了键值重复
-    // RC rc2 = delete_entry_of_indexes(record.data(), record.rid(), false /*error_on_not_exists*/);
-    // if (rc2 != RC::SUCCESS) {
-    //   LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
-    //             name(), rc2, strrc(rc2));
-    // }
-    RC rc2 = record_handler_->delete_record(&record.rid());
+    RC rc2 = delete_entry_of_indexes(record.data(), record.rid(), false /*error_on_not_exists*/);
+    if (rc2 != RC::SUCCESS) {
+      LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
+                name(), rc2, strrc(rc2));
+    }
+
+    rc2 = record_handler_->delete_record(&record.rid());
     if (rc2 != RC::SUCCESS) {
       LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
                 name(), rc2, strrc(rc2));
@@ -221,48 +222,6 @@ RC Table::update_record(Record &record, const char *data)
   RC rc = RC::SUCCESS;
 
   // modify on index
-  // rc = delete_entry_of_indexes(record.data(), record.rid(), false);
-  // if (rc != RC::SUCCESS) {
-  //   LOG_ERROR("Failed to delete index data. table name=%s, rc=%d:%s",
-  //               name(), rc, strrc(rc));
-  //   // RC rc2 = insert_entry_of_indexes(record.data(), record.rid());
-  //   // if (rc2 != RC::SUCCESS) {
-  //   //   LOG_PANIC("Failed to rollback record data when delete index entries failed. table name=%s, rc=%d:%s",
-  //   //             name(), rc2, strrc(rc2));
-  //   //   return rc2;
-  //   // }
-  //   return rc;
-  // }
-
-  // rc = record_handler_->update_record(data, record.rid());
-  // if (rc != RC::SUCCESS) {
-  //   LOG_ERROR("Update record failed. table name=%s, rc=%s", table_meta_.name(), strrc(rc));
-  //   return rc;
-  // }
-
-  // rc = insert_entry_of_indexes(data, record.rid());
-  // if (rc != RC::SUCCESS) {  // 可能出现了键值重复
-  //   LOG_ERROR("duplicate key");
-  //   RC rc2 = record_handler_->update_record(record.data(), record.rid());
-  //   if (rc2 != RC::SUCCESS) {
-  //     LOG_ERROR("Failed to rollback log data when update log failed. table name=%s, rc=%d:%s",
-  //               name(), rc2, strrc(rc2));
-  //     return rc2;
-  //   }
-  //   // RC rc2 = delete_entry_of_indexes(data, record.rid(), false /*error_on_not_exists*/);
-  //   // if (rc2 != RC::SUCCESS) {
-  //   //   LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
-  //   //             name(), rc2, strrc(rc2));
-  //   //   return rc2;
-  //   // }
-  //   // RC rc2 = insert_entry_of_indexes(record.data(), record.rid());
-  //   // if (rc2 != RC::SUCCESS) {
-  //   //   LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
-  //   //             name(), rc2, strrc(rc2));
-  //   //   return rc2;
-  //   // }
-  //   return rc;
-  // }
 
   rc = delete_entry_of_indexes(record.data(), record.rid(), false);
   if (rc != RC::SUCCESS) {
@@ -275,8 +234,8 @@ RC Table::update_record(Record &record, const char *data)
   }
 
   rc = insert_entry_of_indexes(data, record.rid());
-  if (rc != RC::SUCCESS) {  // 可能出现了键值重复
-    RC rc2 = insert_entry_of_indexes(data, record.rid());
+  if (rc != RC::SUCCESS) {                                          // 可能出现了键值重复
+    RC rc2 = insert_entry_of_indexes(record.data(), record.rid());  // ?
     if (rc2 != RC::SUCCESS) {
       LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
           name(),
@@ -582,12 +541,41 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid)
   return rc;
 }
 
+// RC Table::insert_entry_of_indexes(const char *record, const RID &rid)
+// {
+//   RC rc = RC::SUCCESS;
+//   for (size_t i = 0; i < indexes_.size(); i++) {
+//     Index *index = indexes_[i];
+//     rc           = index->insert_entry(record, &rid);
+
+//     // 插入失败的时候，回滚已经成功的索引
+//     if (rc != RC::SUCCESS) {
+//       RC rc2 = RC::SUCCESS;
+//       for (size_t j = 0; j < i; j++) {
+//         rc2 = indexes_[j]->delete_entry(record, &rid);
+//         if (RC::SUCCESS != rc2) {
+//           sql_debug("Delete index failed after insert index failed. rc=%s", strrc(rc2));
+//           LOG_ERROR("rollback index [%d] failed after insert index failed", j);
+//           break;
+//         }
+//       }
+//       break;
+//     }
+//   }
+//   return rc;
+// }
+
 RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists)
 {
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
     rc = index->delete_entry(record, &rid);
     if (rc != RC::SUCCESS) {
+      if (rc == RC::RECORD_NOT_EXIST) {
+        if (error_on_not_exists)
+          return rc;
+        return RC::SUCCESS;
+      }
       if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
         break;
       }
@@ -605,10 +593,21 @@ Index *Table::find_index(const char *index_name) const
   }
   return nullptr;
 }
+
 Index *Table::find_index_by_fields(std::vector<const char *> fields) const
 {
   const TableMeta &table_meta = this->table_meta();
   const IndexMeta *index_meta = table_meta.find_index_by_fields(fields);
+  if (index_meta != nullptr) {
+    return this->find_index(index_meta->name());
+  }
+  return nullptr;
+}
+
+Index *Table::find_index_by_field(const char *field_name) const
+{
+  const TableMeta &table_meta = this->table_meta();
+  const IndexMeta *index_meta = table_meta.find_index_by_field(field_name);
   if (index_meta != nullptr) {
     return this->find_index(index_meta->name());
   }

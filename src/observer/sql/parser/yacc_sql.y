@@ -563,7 +563,7 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $6;
       }
     }
-    // | SELECT expression_list FROM rel_list INNER JOIN rel_list ON condition_list
+    // | SELECT expression_list FROM rel_list INNER JOIN rel_list ON condition_list, rel_list INNER JOIN xxx ON xxx
     | SELECT expression_list FROM rel_list join_list where group_by
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
