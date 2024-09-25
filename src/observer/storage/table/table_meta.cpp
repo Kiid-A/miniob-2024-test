@@ -79,6 +79,7 @@ RC TableMeta::init(int32_t table_id, const char *name, const std::vector<FieldMe
     trx_field_num = static_cast<int>(trx_fields->size());
   } else {
     fields_.resize(attributes.size());
+    LOG_INFO("table meta init size:%d", attributes.size());
   }
 
   for (size_t i = 0; i < attributes.size(); i++) {

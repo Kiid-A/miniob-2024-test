@@ -425,7 +425,7 @@ RC Table::create_index(
   // 创建索引相关数据
   BplusTreeIndex *index      = new BplusTreeIndex();
   string          index_file = table_index_file(base_dir_.c_str(), name(), index_name);
-
+  
   rc = index->create(this, index_file.c_str(), new_index_meta, field_metas, unique);
   if (rc != RC::SUCCESS) {
     delete index;

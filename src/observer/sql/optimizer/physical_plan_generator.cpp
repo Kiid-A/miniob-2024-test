@@ -186,7 +186,10 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper, u
 
   // LOG_INFO("field size:%d", fields.size());
 
-  index = table->find_index_by_fields(fields);
+  if (fields.size() > 1) {
+    index = table->find_index_by_fields(fields);
+  }
+  
 
   if (index != nullptr) {
     LOG_INFO("index name:%s", index->index_meta().name());

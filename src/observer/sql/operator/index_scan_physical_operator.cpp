@@ -48,10 +48,10 @@ IndexScanPhysicalOperator::IndexScanPhysicalOperator(Table *table, Index *index,
   std::vector<FieldMeta> fields = index_->field_metas();
 
   RC  rc   = RC::SUCCESS;
-  int size = 0;
-  for (auto &field : fields) {
-    size += field.len();
-  }
+  int size = index->size();
+  // for (auto &field : fields) {
+  //   size += field.len();
+  // }
 
   Record lrecord;
   Record rrecord;

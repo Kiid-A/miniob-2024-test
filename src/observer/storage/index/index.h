@@ -41,7 +41,7 @@ public:
   virtual ~Index() = default;
 
   const IndexMeta &index_meta() const { return index_meta_; }
-
+  const int size() const { return size_; }
   const std::vector<FieldMeta> &field_metas() const { return field_metas_; }
 
   /**
